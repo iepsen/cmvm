@@ -27,7 +27,7 @@ bootstrap() {
   mkdir -p $HOME/.cmvm/{bin,versions}
   cmvm_source=$HOME/.cmvm/cmvm_source
 
-  touch cmvm_source
+  touch $cmvm_source
   echo "# cmvm" >> $cmvm_source
   echo export PATH="\$HOME/.cmvm/current/bin:\$PATH" >> $cmvm_source
 
