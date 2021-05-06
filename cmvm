@@ -1,0 +1,102 @@
+#!/bin/bash
+
+OUTPUT_PREFIX="[cmvm]"
+CMVM_HOME=$HOME/.cmvm
+TMP_DIR=$CMVM_HOME/tmp
+
+print_message() {
+  echo $OUTPUT_PREFIX $1
+}
+
+help() {
+  echo "Usage"
+  echo ""
+  echo " cmvm list               List all cmake versions installed"
+  echo " cmvm install <version>  Install a cmake version (x.y.z format)"
+  echo " cmvm use <version>      Use a cmake version (x.y.z format)"
+  echo " cmvm help               Print this help message"
+  echo ""
+  echo "Example"
+  echo " cmvm install 3.20.1     Install cmake version 3.20.1"
+  echo " cmvm use 3.19.8         Set cmake version 3.19.8 as current"
+}
+
+list_cmake_versions() {
+  current=$(readlink $HOME/.cmvm/current)
+  print_message "CMake list managed by cmvm:"
+  for entry in `ls $HOME/.cmvm/versions`
+  do
+    if [[ $current == $CMVM_HOME/versions/$entry ]]
+    then
+      echo " * $entry"
+    else
+      echo "   $entry"
+    fi
+  done
+}
+
+create_symbolic_link() {
+  version=${1}
+  if [[ -L $CMVM_HOME/current ]]
+  then
+    unlink $CMVM_HOME/current  
+  fi
+  ln -s $CMVM_HOME/versions/${version} $CMVM_HOME/current
+}
+
+use_cmake_version() {
+  version=${1}
+  print_message "$Setting CMake ${version} as current version" && \
+  create_symbolic_link ${1}
+}
+
+install_cmake_version() {
+  version=${1}
+  source_file=cmake-${version}
+  major_version=$(echo $version| cut -d'.' -f 1)
+  minor_version=$(echo $version| cut -d'.' -f 2)
+  package_url=https://cmake.org/files/v${major_version}.${minor_version}/${source_file}.tar.gz
+
+  mkdir -p $TMP_DIR
+  cd $TMP_DIR && \
+
+  print_message "Downloading ${package_url}..." && \
+  curl -sS ${package_url} > ${source_file}.tar.gz && \
+
+  print_message "Uncompressing ${source_file}.tar.gz..." && \
+  gunzip -c ${source_file}.tar.gz | tar xopf - && \
+  cd ${source_file} && \
+
+  print_message "Preparing to build CMake ${version}... it will take a while." && \
+  ./bootstrap --prefix=$CMVM_HOME/versions/${version}
+
+  print_message "Building CMake ${version}... it will take a while." && \
+  make  && \
+
+  print_message "Installing CMake ${version}..." && \
+  make install && \
+  use_cmake_version $version
+
+  cd $CMVM_HOME
+  rm -rf $TMP_DIR
+}
+
+main() {
+  if [[ ${1} ==  "list" ]]
+  then
+    list_cmake_versions
+  elif [[ ${1} ==  "use" ]]
+  then
+    use_cmake_version $2
+  elif [[ ${1} ==  "install" ]]
+  then
+    install_cmake_version $2
+  elif [[ ${1} ==  "help" ]]
+  then
+    help
+  else
+    help
+  fi
+}
+
+main $@
