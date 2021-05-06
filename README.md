@@ -1,4 +1,4 @@
-# cmvm
+# CMake Version Manager
 cmvm is a CMake version manager inspired by [nvm](https://github.com/nvm-sh/nvm). It gives you the ability to have multiple CMake versions and switch between them.
 
 ## How to install
