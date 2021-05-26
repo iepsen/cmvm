@@ -46,7 +46,7 @@ create_symbolic_link() {
 
 use_cmake_version() {
   version=${1}
-  print_message "$Setting CMake ${version} as current version" && \
+  print_message "Setting CMake ${version} as current version" && \
   create_symbolic_link ${1}
 }
 
