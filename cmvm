@@ -1,7 +1,7 @@
 #!/bin/bash
 
 OUTPUT_PREFIX="[cmvm]"
-CMVM_HOME=$HOME/.cmvm
+CMVM_HOME=$PWD/../
 TMP_DIR=$CMVM_HOME/tmp
 
 print_message() {
@@ -22,9 +22,9 @@ help() {
 }
 
 list_cmake_versions() {
-  current=$(readlink $HOME/.cmvm/current)
+  current=$(readlink $CMVM_HOME/bin/current)
   print_message "CMake list managed by cmvm:"
-  for entry in `ls $HOME/.cmvm/versions`
+  for entry in `ls $CMVM_HOME/versions`
   do
     if [[ $current == $CMVM_HOME/versions/$entry ]]
     then
@@ -37,11 +37,11 @@ list_cmake_versions() {
 
 create_symbolic_link() {
   version=${1}
-  if [[ -L $CMVM_HOME/current ]]
+  if [[ -L $CMVM_HOME/bin/current ]]
   then
-    unlink $CMVM_HOME/current  
+    unlink $CMVM_HOME/bin/current  
   fi
-  ln -s $CMVM_HOME/versions/${version} $CMVM_HOME/current
+  ln -s $CMVM_HOME/versions/${version} $CMVM_HOME/bin/current
 }
 
 use_cmake_version() {
