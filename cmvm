@@ -57,7 +57,7 @@ bootstrap() {
 }
 
 list_cmake_versions() {
-  current=$(readlink $CMVM_HOME/bin/current)
+  current=$(readlink $CMVM_HOME/current)
   versions=`ls $CMVM_HOME/versions`
 
   if [[ $versions == "" ]]
@@ -67,7 +67,7 @@ list_cmake_versions() {
   fi
 
   print_message "CMake list managed by cmvm:"
-  for entry in `ls $CMVM_HOME/versions`
+  for entry in $versions
   do
     if [[ $current == $CMVM_HOME/versions/$entry ]]
     then
