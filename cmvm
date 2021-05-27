@@ -3,7 +3,7 @@
 OUTPUT_PREFIX="[cmvm]"
 CMVM_HOME=$HOME/.cmvm
 TMP_DIR=$CMVM_HOME/tmp
-VERSION=0.2.0
+VERSION=0.2.1
 
 print_message() {
   echo $OUTPUT_PREFIX $1
