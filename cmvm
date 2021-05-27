@@ -1,7 +1,7 @@
 #!/bin/bash
 
 OUTPUT_PREFIX="[cmvm]"
-CMVM_HOME=$PWD/../
+CMVM_HOME=$HOME/.cmvm
 TMP_DIR=$CMVM_HOME/tmp
 
 print_message() {
@@ -19,6 +19,35 @@ help() {
   echo "Example"
   echo " cmvm install 3.20.1     Install cmake version 3.20.1"
   echo " cmvm use 3.19.8         Set cmake version 3.19.8 as current"
+}
+
+bootstrap() {
+  if [[ ! -d $CMVM_HOME ]]
+  then
+    print_message "Creating basic folders and files structure to manage CMake versions."
+    mkdir -p $CMVM_HOME/{bin,versions}
+    cmvm_source=$CMVM_HOME/cmvm_source
+  
+    touch $cmvm_source
+    echo "# cmvm" >> $cmvm_source
+    echo export PATH="\$HOME/.cmvm/current/bin:\$PATH" >> $cmvm_source
+
+    if [[ $SHELL == "/bin/zsh" ]]
+    then
+      source_file="$HOME/.zshrc"
+    else
+      source_file="$HOME/.bash_profile"
+    fi
+
+    echo "# cmvm" >> $source_file
+    echo "source $cmvm_source" >> $source_file
+
+    source $cmvm_source
+
+    print_message "Done!"
+    echo ""
+
+    fi
 }
 
 list_cmake_versions() {
@@ -82,6 +111,7 @@ install_cmake_version() {
 }
 
 main() {
+  bootstrap
   if [[ ${1} ==  "list" ]]
   then
     list_cmake_versions
