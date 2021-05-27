@@ -3,23 +3,29 @@
 OUTPUT_PREFIX="[cmvm]"
 CMVM_HOME=$HOME/.cmvm
 TMP_DIR=$CMVM_HOME/tmp
+VERSION=0.2.0
 
 print_message() {
   echo $OUTPUT_PREFIX $1
   echo ""
 }
 
-help() {
+print_help() {
   echo "Usage"
   echo ""
   echo " cmvm list               List all cmake versions installed"
   echo " cmvm install <version>  Install a cmake version (x.y.z format)"
   echo " cmvm use <version>      Use a cmake version (x.y.z format)"
+  echo " cmvm version            Print cmvm version"
   echo " cmvm help               Print this help message"
   echo ""
   echo "Example"
   echo " cmvm install 3.20.1     Install cmake version 3.20.1"
   echo " cmvm use 3.19.8         Set cmake version 3.19.8 as current"
+}
+
+print_version() {
+  echo $VERSION
 }
 
 bootstrap() {
@@ -129,11 +135,14 @@ main() {
   elif [[ ${1} ==  "install" ]]
   then
     install_cmake_version $2
+  elif [[ ${1} ==  "version" ]]
+  then
+    print_version
   elif [[ ${1} ==  "help" ]]
   then
-    help
+    print_help
   else
-    help
+    print_help
   fi
 }
 
