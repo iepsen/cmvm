@@ -20,23 +20,19 @@ cmvm install 3.20.1
 ```
 
 List cmake versions managed by cmvm installed:
-
 ```
 cmvm list
 ```
 
 Switch to a CMake version:
-
 ```
 cmvm use 3.20.1
 ```
 
 List all commands available and usage examples:
-
 ```
 cmvm help
 ```
 
 ## Support
-
 Only macOS is supported for now.
