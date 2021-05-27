@@ -6,6 +6,7 @@ TMP_DIR=$CMVM_HOME/tmp
 
 print_message() {
   echo $OUTPUT_PREFIX $1
+  echo ""
 }
 
 help() {
@@ -45,13 +46,20 @@ bootstrap() {
     source $cmvm_source
 
     print_message "Done!"
-    echo ""
 
     fi
 }
 
 list_cmake_versions() {
   current=$(readlink $CMVM_HOME/bin/current)
+  versions=`ls $CMVM_HOME/versions`
+
+  if [[ $versions == "" ]]
+  then
+    print_message "No CMake versions installed by cmvm yet."
+    exit
+  fi
+
   print_message "CMake list managed by cmvm:"
   for entry in `ls $CMVM_HOME/versions`
   do
