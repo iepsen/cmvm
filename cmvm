@@ -3,17 +3,19 @@
 OUTPUT_PREFIX="[cmvm]"
 CMVM_HOME=$HOME/.cmvm
 TMP_DIR=$CMVM_HOME/tmp
+VERSION=0.2.1
 
 print_message() {
   echo $OUTPUT_PREFIX $1
 }
 
-help() {
+print_help() {
   echo "Usage"
   echo ""
   echo " cmvm list               List all cmake versions installed"
   echo " cmvm install <version>  Install a cmake version (x.y.z format)"
   echo " cmvm use <version>      Use a cmake version (x.y.z format)"
+  echo " cmvm version            Print cmvm version"
   echo " cmvm help               Print this help message"
   echo ""
   echo "Example"
@@ -21,10 +23,50 @@ help() {
   echo " cmvm use 3.19.8         Set cmake version 3.19.8 as current"
 }
 
+print_version() {
+  echo $VERSION
+}
+
+bootstrap() {
+  if [[ ! -d $CMVM_HOME ]]
+  then
+    print_message "Creating basic folders and files structure to manage CMake versions."
+    mkdir -p $CMVM_HOME/versions
+    cmvm_source=$CMVM_HOME/cmvm_source
+  
+    touch $cmvm_source
+    echo "# cmvm" >> $cmvm_source
+    echo export PATH="\$HOME/.cmvm/current/bin:\$PATH" >> $cmvm_source
+
+    if [[ $SHELL == "/bin/zsh" ]]
+    then
+      source_file="$HOME/.zshrc"
+    else
+      source_file="$HOME/.bash_profile"
+    fi
+
+    echo "# cmvm" >> $source_file
+    echo "source $cmvm_source" >> $source_file
+
+    source $cmvm_source
+
+    print_message "Done!"
+
+    fi
+}
+
 list_cmake_versions() {
-  current=$(readlink $HOME/.cmvm/current)
+  current=$(readlink $CMVM_HOME/current)
+  versions=`ls $CMVM_HOME/versions`
+
+  if [[ $versions == "" ]]
+  then
+    print_message "No CMake versions installed by cmvm yet."
+    exit
+  fi
+
   print_message "CMake list managed by cmvm:"
-  for entry in `ls $HOME/.cmvm/versions`
+  for entry in $versions
   do
     if [[ $current == $CMVM_HOME/versions/$entry ]]
     then
@@ -82,6 +124,7 @@ install_cmake_version() {
 }
 
 main() {
+  bootstrap
   if [[ ${1} ==  "list" ]]
   then
     list_cmake_versions
@@ -91,11 +134,14 @@ main() {
   elif [[ ${1} ==  "install" ]]
   then
     install_cmake_version $2
+  elif [[ ${1} ==  "version" ]]
+  then
+    print_version
   elif [[ ${1} ==  "help" ]]
   then
-    help
+    print_help
   else
-    help
+    print_help
   fi
 }
 

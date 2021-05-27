@@ -1,14 +1,20 @@
 # CMake Version Manager
+
 cmvm is simple tool inspired by [nvm](https://github.com/nvm-sh/nvm) that manages multiple CMake versions.
 
 ## How to install
-Use the following cURL command to install cmvm:
+
+Tap the CMake Version Manager [Homebrew](https://brew.sh/) formulae and install it:
+
 ```
-curl -o- https://raw.githubusercontent.com/iepsen/cmvm/master/install.sh | bash
+brew tap iepsen/cmvm
+brew install cmvm
 ```
 
 ## Usage
+
 Install a CMake version:
+
 ```
 cmvm install 3.20.1
 ```
