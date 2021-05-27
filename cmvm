@@ -25,7 +25,7 @@ bootstrap() {
   if [[ ! -d $CMVM_HOME ]]
   then
     print_message "Creating basic folders and files structure to manage CMake versions."
-    mkdir -p $CMVM_HOME/{bin,versions}
+    mkdir -p $CMVM_HOME/versions
     cmvm_source=$CMVM_HOME/cmvm_source
   
     touch $cmvm_source
@@ -66,16 +66,16 @@ list_cmake_versions() {
 
 create_symbolic_link() {
   version=${1}
-  if [[ -L $CMVM_HOME/bin/current ]]
+  if [[ -L $CMVM_HOME/current ]]
   then
-    unlink $CMVM_HOME/bin/current  
+    unlink $CMVM_HOME/current  
   fi
-  ln -s $CMVM_HOME/versions/${version} $CMVM_HOME/bin/current
+  ln -s $CMVM_HOME/versions/${version} $CMVM_HOME/current
 }
 
 use_cmake_version() {
   version=${1}
-  print_message "$Setting CMake ${version} as current version" && \
+  print_message "Setting CMake ${version} as current version" && \
   create_symbolic_link ${1}
 }
 
