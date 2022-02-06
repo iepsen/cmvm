@@ -1,6 +1,8 @@
 use clap::{arg, App, AppSettings};
 
+mod cache;
 mod http;
+mod version;
 mod list_remote;
 
 fn main() {
