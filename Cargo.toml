@@ -12,3 +12,6 @@ parse_link_header = "0.3"
 reqwest = { version = "0.11.9", features = ["blocking", "json"]}
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1"
+flate2 = "1.0.22"
+tar = "0.4.38"
+fs_extra = "1.2.0"

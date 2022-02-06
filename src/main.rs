@@ -2,6 +2,7 @@ use clap::{arg, App, AppSettings};
 
 mod cache;
 mod http;
+mod install;
 mod version;
 mod list_remote;
 
@@ -39,10 +40,7 @@ fn main() {
 
     match matches.subcommand() {
       Some(("install", sub_matches)) => {
-        println!(
-          "TODO: Install cmake version {}",
-          sub_matches.value_of("VERSION").expect("required")
-        );
+        install::version(sub_matches.value_of("VERSION").expect("required"))
       }
       Some(("use", sub_matches)) => {
         println!(
