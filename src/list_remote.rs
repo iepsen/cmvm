@@ -1,6 +1,7 @@
 use std::fs;
 use std::io::prelude::*;
 use std::fs::File;
+use std::thread;
 use std::path::PathBuf;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value};
@@ -39,7 +40,7 @@ fn generate_cache(page: Option<i32>) -> Result<(), Box<dyn std::error::Error>> {
 
     if file_name.exists() {
       if fs::remove_file(&file_name).is_err() {
-        println!("Unable to remove file {:?}", file_name);
+        println!("[cmvm] Unable to remove file {:?}", file_name);
       }
     }
 
@@ -50,11 +51,14 @@ fn generate_cache(page: Option<i32>) -> Result<(), Box<dyn std::error::Error>> {
       if let Some(link_header) = response.headers().get("link") {
         let pages = get_number_of_pages(link_header.to_str().unwrap());
         for page in 2..pages.unwrap() + 1 {
-          let _ = generate_cache(Some(page));
+          let result = generate_cache(Some(page));
+          if result.is_err() {
+            println!("[cmvm] Unable to generate cache for page {} with error {:?}", page, result.err());
+          }
         }
         let merge_result = merge(pages.unwrap());
         if merge_result.is_err() {
-          println!("Unable to merge with error {:?}", merge_result);
+          println!("[cmvm] Unable to merge with error {:?}", merge_result);
         }
       }
     }
@@ -70,21 +74,21 @@ fn bootstrap() {
   
   if !cmvm_dir.exists() {
     if fs::create_dir(cmvm_dir).is_err() {
-      println!("Unable to create .cmvm dir");
+      println!("[cmvm] Unable to create .cmvm dir");
       return;
     }
   }
 
   if !versions_dir.exists() {
     if fs::create_dir(versions_dir).is_err() {
-      println!("Unable to create .cmvm/versions dir");
+      println!("[cmvm] Unable to create .cmvm/versions dir");
       return;
     }
   }
   
   if !cache_dir.exists() {
     if fs::create_dir(cache_dir).is_err() {
-      println!("Unable to create .cmvm/cache dir");
+      println!("[cmvm] Unable to create .cmvm/cache dir");
       return;
     }
   }
@@ -107,7 +111,7 @@ fn merge(pages: i32) -> Result<(), Box<dyn std::error::Error>> {
 
   if file_name.exists() {
     if fs::remove_file(&file_name).is_err() {
-      println!("Unable to remove file {:?}", file_name);
+      println!("[cmvm] Unable to remove file {:?}", file_name);
     }
   }
 
@@ -124,7 +128,7 @@ fn merge(pages: i32) -> Result<(), Box<dyn std::error::Error>> {
       }
 
       if fs::remove_file(&page_file_name).is_err() {
-        println!("Unable to remove intermediate cache file {:?}", page_file_name);
+        println!("[cmvm] Unable to remove intermediate cache file {:?}", page_file_name);
       }
     }
   }
@@ -134,7 +138,7 @@ fn merge(pages: i32) -> Result<(), Box<dyn std::error::Error>> {
   let cache_result = cache_file.write_all(cache_json.as_bytes());
 
   if cache_result.is_err() {
-    println!("Unable to create cache file with error: {:?}", cache_result.err());
+    println!("[cmvm] Unable to create cache file with error: {:?}", cache_result.err());
   }
   Ok(())
 }
@@ -155,15 +159,21 @@ pub fn get_versions() -> Result<(), Box<dyn std::error::Error>> {
   if !file_name.exists() {
     println!("[cmvm] Fetching versions at first time...");
     if generate_cache(None).is_err() {
-      println!("Unable to generate cache");
+      println!("[cmvm] Unable to generate cache");
     }
+  } else {
+    thread::spawn(|| {
+      if generate_cache(None).is_err() {
+        println!("[cmvm] Unable to generate cache");
+      }
+    });
   }
 
   let mut file = File::options().read(true).open(file_name)?;
   let mut contents = String::new();
   
   if file.read_to_string(&mut contents).is_err() {
-    println!("Hm.");
+    println!("[cmvm] Cannot write to file");
   }
 
   let raw_versions: Vec<Value> = serde_json::from_str(contents.as_str()).unwrap();
