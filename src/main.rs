@@ -1,5 +1,8 @@
 use clap::{arg, App, AppSettings};
 
+mod http;
+mod list_remote;
+
 fn main() {
   let matches = App::new("cmvm")
     .about("Cmake version manager")
@@ -51,9 +54,10 @@ fn main() {
         );
       }
       Some(("list-remote", _)) => {
-        println!(
-          "TODO: List remote cmake versions",
-        );
+        let command_result = list_remote::get_versions();
+        if command_result.is_err() {
+          println!("Unable to run list-remote: {:?}", command_result.err());
+        }
       }
       Some(("version", _)) => {
         println!(
