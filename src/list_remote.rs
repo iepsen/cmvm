@@ -3,30 +3,57 @@ use std::io::prelude::*;
 use std::fs::File;
 use std::thread;
 use std::path::PathBuf;
-use serde::{Deserialize, Serialize};
 use serde_json::{Value};
 use crate::http;
+use crate::version::{Version};
 
 const BASE_URL: &str = "https://api.github.com/repos/Kitware/CMake/releases";
 const CACHE_FILE_NAME: &str = "releases.json";
 
-#[derive(Serialize, Deserialize, Debug)]
-struct Asset {
-  content_type: String,
-  browser_download_url: String,
+pub fn get_versions() -> Result<(), Box<dyn std::error::Error>> {
+
+  let cache_dir = get_cache_dir();
+  let file_name = cache_dir.join(CACHE_FILE_NAME);
+
+  if !file_name.exists() {
+    println!("[cmvm] Fetching versions at first time...");
+    if generate_cache(None).is_err() {
+      println!("[cmvm] Unable to generate cache");
+    }
+  } else {
+    thread::spawn(|| {
+      if generate_cache(None).is_err() {
+        println!("[cmvm] Unable to generate cache");
+      }
+    });
+  }
+
+  let mut file = File::options().read(true).open(file_name)?;
+  let mut contents = String::new();
+  
+  if file.read_to_string(&mut contents).is_err() {
+    println!("[cmvm] Cannot write to file");
+  }
+
+  let raw_versions: Vec<Value> = serde_json::from_str(contents.as_str()).unwrap();
+  let mut versions: Vec<Version> = Vec::new();
+  for raw_version in raw_versions {
+    if raw_version["tag_name"].as_str().unwrap().len() > 0 {
+      let version: Version = serde_json::from_value(raw_version).unwrap();
+      versions.push(version);
+    }
+  }
+
+  print_versions(versions);
+
+  Ok(())
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-struct Version {
-  tag_name: String,
-  assets: Vec<Asset>
-}
-
-fn get_number_of_pages(link_header: &str) -> Result<i32, i32> {
-  let parsed_link_header = parse_link_header::parse(link_header).unwrap();
-  let last_link = parsed_link_header.get(&Some("last".to_string())).unwrap();
-  let last_page = last_link.queries["page"].parse::<i32>().unwrap();
-  return Ok(last_page);
+fn print_versions(versions: Vec<Version>) {
+  println!("[cmvm] Available cmake versions:");
+  for version in versions {
+    println!("    {}", version.tag_name);
+  }
 }
 
 fn generate_cache(page: Option<i32>) -> Result<(), Box<dyn std::error::Error>> {
@@ -35,7 +62,7 @@ fn generate_cache(page: Option<i32>) -> Result<(), Box<dyn std::error::Error>> {
   let mut response = http::get(format!("{}?page={}", BASE_URL, current_page).as_str())?;
 
   if response.status().is_success() {
-    let (_, cache_dir, _) = get_cmvm_dirs();
+    let cache_dir = get_cache_dir();
     let file_name = cache_dir.join(format!("{}.json", current_page));
 
     if file_name.exists() {
@@ -66,47 +93,9 @@ fn generate_cache(page: Option<i32>) -> Result<(), Box<dyn std::error::Error>> {
   Ok(())
 }
 
-fn bootstrap() {
-  let home_dir: PathBuf = dirs::home_dir().unwrap();
-  let cmvm_dir: PathBuf = home_dir.join(".cmvm");
-  let cache_dir: PathBuf = cmvm_dir.join("cache");
-  let versions_dir: PathBuf = cmvm_dir.join("versions");
-  
-  if !cmvm_dir.exists() {
-    if fs::create_dir(cmvm_dir).is_err() {
-      println!("[cmvm] Unable to create .cmvm dir");
-      return;
-    }
-  }
-
-  if !versions_dir.exists() {
-    if fs::create_dir(versions_dir).is_err() {
-      println!("[cmvm] Unable to create .cmvm/versions dir");
-      return;
-    }
-  }
-  
-  if !cache_dir.exists() {
-    if fs::create_dir(cache_dir).is_err() {
-      println!("[cmvm] Unable to create .cmvm/cache dir");
-      return;
-    }
-  }
-}
-
-fn get_cmvm_dirs() -> (PathBuf, PathBuf, PathBuf) {
-  let cmvm_dir: PathBuf = dirs::home_dir().unwrap().join(".cmvm");
-  let cache_dir: PathBuf = cmvm_dir.join("cache");
-  let versions_dir: PathBuf = cmvm_dir.join("versions");
-
-  bootstrap();
-
-  return (cmvm_dir, cache_dir, versions_dir);
-}
-
 fn merge(pages: i32) -> Result<(), Box<dyn std::error::Error>> {
   let mut releases: Vec<Value> = Vec::new();
-  let (_, cache_dir, _) = get_cmvm_dirs();
+  let cache_dir = get_cache_dir();
   let file_name = cache_dir.join(format!("{}", CACHE_FILE_NAME));
 
   if file_name.exists() {
@@ -143,49 +132,46 @@ fn merge(pages: i32) -> Result<(), Box<dyn std::error::Error>> {
   Ok(())
 }
 
-fn print_versions(versions: Vec<Version>) {
+fn get_number_of_pages(link_header: &str) -> Result<i32, i32> {
+  let parsed_link_header = parse_link_header::parse(link_header).unwrap();
+  let last_link = parsed_link_header.get(&Some("last".to_string())).unwrap();
+  let last_page = last_link.queries["page"].parse::<i32>().unwrap();
+  return Ok(last_page);
+}
 
-  println!("[cmvm] Available cmake versions:");
-  for version in versions {
-    println!("    {}", version.tag_name);
+fn bootstrap() {
+  let home_dir: PathBuf = dirs::home_dir().unwrap();
+  let cmvm_dir: PathBuf = home_dir.join(".cmvm");
+  let cache_dir: PathBuf = cmvm_dir.join("cache");
+  let versions_dir: PathBuf = cmvm_dir.join("versions");
+  
+  if !cmvm_dir.exists() {
+    if fs::create_dir(cmvm_dir).is_err() {
+      println!("[cmvm] Unable to create .cmvm dir");
+      return;
+    }
+  }
+
+  if !versions_dir.exists() {
+    if fs::create_dir(versions_dir).is_err() {
+      println!("[cmvm] Unable to create .cmvm/versions dir");
+      return;
+    }
+  }
+  
+  if !cache_dir.exists() {
+    if fs::create_dir(cache_dir).is_err() {
+      println!("[cmvm] Unable to create .cmvm/cache dir");
+      return;
+    }
   }
 }
 
-pub fn get_versions() -> Result<(), Box<dyn std::error::Error>> {
+fn get_cache_dir() -> PathBuf {
+  let cmvm_dir: PathBuf = dirs::home_dir().unwrap().join(".cmvm");
+  let cache_dir: PathBuf = cmvm_dir.join("cache");
 
-  let (_, cache_dir, _) = get_cmvm_dirs();
-  let file_name = cache_dir.join(CACHE_FILE_NAME);
+  bootstrap();
 
-  if !file_name.exists() {
-    println!("[cmvm] Fetching versions at first time...");
-    if generate_cache(None).is_err() {
-      println!("[cmvm] Unable to generate cache");
-    }
-  } else {
-    thread::spawn(|| {
-      if generate_cache(None).is_err() {
-        println!("[cmvm] Unable to generate cache");
-      }
-    });
-  }
-
-  let mut file = File::options().read(true).open(file_name)?;
-  let mut contents = String::new();
-  
-  if file.read_to_string(&mut contents).is_err() {
-    println!("[cmvm] Cannot write to file");
-  }
-
-  let raw_versions: Vec<Value> = serde_json::from_str(contents.as_str()).unwrap();
-  let mut versions: Vec<Version> = Vec::new();
-  for raw_version in raw_versions {
-    if raw_version["tag_name"].as_str().unwrap().len() > 0 {
-      let version: Version = serde_json::from_value(raw_version).unwrap();
-      versions.push(version);
-    }
-  }
-
-  print_versions(versions);
-
-  Ok(())
+  return cache_dir;
 }
