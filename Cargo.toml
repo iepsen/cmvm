@@ -1,6 +1,6 @@
 [package]
 name = "cmvm"
-version = "2.0.0"
+version = "0.3.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -15,3 +15,5 @@ serde_json = "1"
 flate2 = "1.0.22"
 tar = "0.4.38"
 fs_extra = "1.2.0"
+os_info = "3"
+lazy_static = "1.4.0"

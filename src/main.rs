@@ -1,10 +1,11 @@
 use clap::{arg, App, AppSettings};
 
 mod cache;
+mod constants;
+mod commands;
+mod versions;
+mod releases;
 mod http;
-mod install;
-mod version;
-mod list_remote;
 
 fn main() {
   let matches = App::new("cmvm")
@@ -32,32 +33,20 @@ fn main() {
       App::new("list-remote")
         .about("List remove cmake versions available")
     )
-    .subcommand(
-      App::new("version")
-        .about("cmvm version")
-    )
-    .get_matches();
+    .subcommand(App::new("version").about("cmvm version")).get_matches();
 
     match matches.subcommand() {
       Some(("install", sub_matches)) => {
-        install::version(sub_matches.value_of("VERSION").expect("required"))
+        commands::install_version(sub_matches.value_of("VERSION").expect("required"));
       }
       Some(("use", sub_matches)) => {
-        println!(
-          "TODO: Use cmake version {}",
-          sub_matches.value_of("VERSION").expect("required")
-        );
+        commands::use_version(sub_matches.value_of("VERSION").expect("required"));
       }
       Some(("list", _)) => {
-        println!(
-          "TODO: List cmake versions",
-        );
+        commands::list_versions();
       }
       Some(("list-remote", _)) => {
-        let command_result = list_remote::get_versions();
-        if command_result.is_err() {
-          println!("Unable to run list-remote: {:?}", command_result.err());
-        }
+        commands::list_remote_versions();
       }
       Some(("version", _)) => {
         println!(
