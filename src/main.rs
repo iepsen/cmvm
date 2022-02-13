@@ -5,9 +5,13 @@ mod constants;
 mod commands;
 mod versions;
 mod releases;
+mod package;
 mod http;
 
 fn main() {
+  
+  cache::bootstrap();
+
   let matches = App::new("cmvm")
     .about("Cmake version manager")
     .setting(AppSettings::SubcommandRequiredElseHelp)

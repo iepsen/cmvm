@@ -1,10 +1,25 @@
-use std::{fs, io::Write};
+use std::{fs, io::Write, thread};
 use serde_json::{Value};
 
-use crate::{cache::{delete, write_file}, constants::{BASE_URL, CACHE_DIR, RELEASES_FILE_NAME}};
+use crate::{cache::{delete, create_file, open_file}, constants::{BASE_URL, CACHE_DIR, RELEASES_FILE_NAME}, versions::{Version, Asset}};
 use crate::http;
 
-pub fn generate_cache(page: Option<i32>) -> Result<(), Box<dyn std::error::Error>> {
+pub fn build_cache() {
+  if !CACHE_DIR.join(RELEASES_FILE_NAME).exists() {
+    println!("[cmvm] Fetching versions at first time...");
+    if generate_cache(None).is_err() {
+      println!("[cmvm] Failed to fetch remote versions");
+    }
+  } else {
+    thread::spawn(|| {
+      if generate_cache(None).is_err() {
+        println!("[cmvm] Failed to fetch remote versions");
+      }  
+    });
+  }
+}
+
+fn generate_cache(page: Option<i32>) -> Result<(), Box<dyn std::error::Error>> {
   let current_page = page.unwrap_or(1);
   let first_page = current_page == 1;
   let mut response = http::get(format!("{}?page={}", BASE_URL, current_page).as_str())?;
@@ -16,7 +31,7 @@ pub fn generate_cache(page: Option<i32>) -> Result<(), Box<dyn std::error::Error
       delete(Some(&current_page_file))?;
     }
 
-    let mut file = write_file(current_page_file.as_path())?;
+    let mut file = create_file(current_page_file.as_path())?;
     response.copy_to(&mut file)?;
 
     if first_page {
@@ -63,7 +78,7 @@ fn merge(pages: i32) -> Result<(), Box<dyn std::error::Error>> {
     }
   }
 
-  let mut cache_file = write_file(&CACHE_DIR.join(RELEASES_FILE_NAME)).unwrap();
+  let mut cache_file = create_file(&CACHE_DIR.join(RELEASES_FILE_NAME)).unwrap();
   let cache_json = serde_json::to_string(&releases).unwrap();
   let cache_result = cache_file.write(cache_json.as_bytes());
 
@@ -78,4 +93,47 @@ fn get_number_of_pages(link_header: &str) -> Result<i32, i32> {
   let last_link = parsed_link_header.get(&Some("last".to_string())).unwrap();
   let last_page = last_link.queries["page"].parse::<i32>().unwrap();
   return Ok(last_page);
+}
+
+fn get_releases() -> Result<Vec<Version>, Box<dyn std::error::Error>> {
+  let releases = open_file(CACHE_DIR.join(RELEASES_FILE_NAME));
+  let raw_versions: Vec<Value> = serde_json::from_str(releases.unwrap().as_str()).unwrap();
+  let mut versions: Vec<Version> = Vec::new();
+  for raw_version in raw_versions {
+    if raw_version["tag_name"].as_str().unwrap().len() > 0 {
+      let version: Version = serde_json::from_value(raw_version).unwrap();
+      versions.push(version);
+    }
+  }
+  Ok(versions)
+}
+
+pub fn get_release(version: String) -> Option<Version> {
+  let releases = get_releases().unwrap();
+  let release = releases
+    .iter()
+    .find(|v| 
+      v.tag_name.replace("v", "") == version
+  );
+
+  if let Some(release) = release {
+    return Some(release.clone());
+  }
+  return None;
+}
+
+pub fn get_release_asset(version: &Version) -> Result<Option<Asset>, Box<dyn std::error::Error>>{
+  let mut asset: Option<Asset> = None;
+  let releases_versions = get_releases().unwrap();
+  
+  for release_version in releases_versions {
+    if release_version.tag_name == version.tag_name {
+      for version_asset in release_version.assets {
+        if version_asset.content_type == "application/json" {
+          asset = Some(version_asset);
+        }
+      }
+    }
+  }
+  Ok(asset)
 }

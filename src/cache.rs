@@ -1,31 +1,61 @@
-use std::{fs::{create_dir, remove_dir_all, remove_file, File}, path::{Path, PathBuf}, io::Read};
-use crate::constants::{ROOT_DIR};
+use std::fs;
+use std::path::{Path, PathBuf};
+use std::io::Read;
 
-pub fn write_dir(path: Option<&Path>) -> std::io::Result<()> {
+use crate::constants::{ROOT_DIR, CACHE_DIR, VERSIONS_DIR};
+
+pub fn bootstrap() {
+    if !ROOT_DIR.exists() {
+    if fs::create_dir(ROOT_DIR.as_path()).is_err() {
+      println!("[cmvm] Unable to create .cmvm dir");
+      return;
+    }
+  }
+
+  if !VERSIONS_DIR.exists() {
+    if fs::create_dir(VERSIONS_DIR.as_path()).is_err() {
+      println!("[cmvm] Unable to create .cmvm/versions dir");
+      return;
+    }
+  }
+  
+  if !CACHE_DIR.exists() {
+    if fs::create_dir(CACHE_DIR.as_path()).is_err() {
+      println!("[cmvm] Unable to create .cmvm/cache dir");
+      return;
+    }
+  }
+}
+
+pub fn create_dir(path: Option<&Path>) -> std::io::Result<()> {
   let destination_path = ROOT_DIR.join(path.unwrap_or(&Path::new("")));
-  create_dir(destination_path)?;
+  fs::create_dir(destination_path)?;
   Ok(())
 }
 
-pub fn write_file(path: &Path) -> std::io::Result<File> {
-  return File::create(ROOT_DIR.join(path));
+pub fn create_file(path: &Path) -> Result<fs::File, std::io::Error> {
+  if ROOT_DIR.join(path).exists() {
+    delete(Some(&ROOT_DIR.join(path))).unwrap();
+  }
+  
+  fs::File::create(ROOT_DIR.join(path))
 }
 
 pub fn open_file(path: PathBuf) -> Result<String, Box<dyn std::error::Error>> {
-  let mut cache_file = File::options().read(true).open(path)?;
+  let mut cache_file = fs::File::options().read(true).open(path)?;
   let mut contents = String::new();
-  
   cache_file.read_to_string(&mut contents)?;
-  return Ok(contents);
+  
+  Ok(contents)
 }
 
 pub fn delete(path: Option<&Path>) -> std::io::Result<()> {
   let destination_path = ROOT_DIR.join(path.unwrap_or(&Path::new("")));
 
   if destination_path.is_dir() {
-    remove_dir_all(destination_path)?;
+    fs::remove_dir_all(destination_path)?;
   } else {
-    remove_file(destination_path)?;
+    fs::remove_file(destination_path)?;
   }
 
   Ok(())
