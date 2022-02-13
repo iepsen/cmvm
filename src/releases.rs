@@ -19,6 +19,36 @@ pub fn build_cache() {
   }
 }
 
+pub fn get_release(version: String) -> Option<Version> {
+  let releases = get_releases().unwrap();
+  let release = releases
+    .iter()
+    .find(|v| 
+      v.tag_name.replace("v", "") == version
+  );
+
+  if let Some(release) = release {
+    return Some(release.clone());
+  }
+  return None;
+}
+
+pub fn get_release_asset(version: &Version) -> Result<Option<Asset>, Box<dyn std::error::Error>>{
+  let mut asset: Option<Asset> = None;
+  let releases_versions = get_releases().unwrap();
+  
+  for release_version in releases_versions {
+    if release_version.tag_name == version.tag_name {
+      for version_asset in release_version.assets {
+        if version_asset.content_type == "application/json" {
+          asset = Some(version_asset);
+        }
+      }
+    }
+  }
+  Ok(asset)
+}
+
 fn generate_cache(page: Option<i32>) -> Result<(), Box<dyn std::error::Error>> {
   let current_page = page.unwrap_or(1);
   let first_page = current_page == 1;
@@ -106,34 +136,4 @@ fn get_releases() -> Result<Vec<Version>, Box<dyn std::error::Error>> {
     }
   }
   Ok(versions)
-}
-
-pub fn get_release(version: String) -> Option<Version> {
-  let releases = get_releases().unwrap();
-  let release = releases
-    .iter()
-    .find(|v| 
-      v.tag_name.replace("v", "") == version
-  );
-
-  if let Some(release) = release {
-    return Some(release.clone());
-  }
-  return None;
-}
-
-pub fn get_release_asset(version: &Version) -> Result<Option<Asset>, Box<dyn std::error::Error>>{
-  let mut asset: Option<Asset> = None;
-  let releases_versions = get_releases().unwrap();
-  
-  for release_version in releases_versions {
-    if release_version.tag_name == version.tag_name {
-      for version_asset in release_version.assets {
-        if version_asset.content_type == "application/json" {
-          asset = Some(version_asset);
-        }
-      }
-    }
-  }
-  Ok(asset)
 }
