@@ -29,7 +29,7 @@ pub fn use_version(version: &Version) -> Result<(), io::Error> {
 pub fn list_versions() -> Result<String, io::Error> {
   let versions = ls(Some(&VERSIONS_DIR))?;
   let mut mapped_versions: Vec<String> = Vec::new();
-  let current = CURRENT_VERSION.read_link().unwrap();
+  let current = CURRENT_VERSION.read_link().unwrap_or_default();
 
   for version in versions {
     if version.is_dir() {
@@ -39,10 +39,9 @@ pub fn list_versions() -> Result<String, io::Error> {
       }
 
       let version_name = version.file_name().unwrap().to_str().unwrap().replace("v", "");
-      mapped_versions.push(format!("  {} {}", checked, version_name));
+      mapped_versions.push(format!("[cmvm] {} {}", checked, version_name));
     }
   }
-
   Ok(mapped_versions.join("\n"))
 }
 
@@ -54,7 +53,7 @@ pub fn list_remote_versions() -> Result<String, io::Error> {
   for raw_version in raw_versions {
     if raw_version["tag_name"].as_str().unwrap().len() > 0 {
       let version: Version = serde_json::from_value(raw_version).unwrap();
-      versions.push(format!("    {}", version.tag_name.replace("v", "")));
+      versions.push(format!("[cmvm] {}", version.tag_name.replace("v", "")));
     }
   }
 

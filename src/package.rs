@@ -79,6 +79,8 @@ fn download(version: &Version, download_detail: &DownloadDetail) -> Result<(), B
 
   let package_name = download_detail.name.as_str();
   let package_url = format!("{}/{}/{}", BASE_RELEASE_URL, version.tag_name, package_name);
+
+  println!("[cmvm] Downloading {}.", package_url);
   let mut response = http::get(package_url.as_str()).unwrap();
   let mut file = create_file(&CACHE_DIR.join(&version.tag_name).join(package_name))?;
   response.copy_to(&mut file)?;
@@ -90,6 +92,7 @@ fn uncompress(version: &Version, download_detail: &DownloadDetail) -> Result<(),
   let compressed_file = fs::read(CACHE_DIR.join(&version.tag_name).join(&download_detail.name)).unwrap();
   let gz = GzDecoder::new(&*compressed_file);
   let mut archive = Archive::new(gz);
+  println!("[cmvm] Uncompressing {}.", download_detail.name);
   archive.unpack(&CACHE_DIR.join(&version.tag_name))?;
   
   Ok(())
@@ -120,7 +123,11 @@ fn copy(version: &Version, download_detail: &DownloadDetail) -> Result<(), Box<d
 
   create_dir(Some(&VERSIONS_DIR.join(&version.tag_name))).unwrap();
 
-  fs_extra::copy_items(&from_paths, VERSIONS_DIR.join(&version.tag_name), &options)?;
+  let destination_dir = VERSIONS_DIR.join(&version.tag_name);
+
+  println!("[cmvm] Setting up {}.", &version.tag_name);
+
+  fs_extra::copy_items(&from_paths, destination_dir, &options)?;
 
   Ok(())
 }
@@ -128,5 +135,6 @@ fn copy(version: &Version, download_detail: &DownloadDetail) -> Result<(), Box<d
 fn clean(version: &Version) -> Result<(), Box<dyn std::error::Error>>{
   delete(Some(&CACHE_DIR.join(&version.tag_name)))?;
   delete(Some(&CACHE_DIR.join(format!("{}.json", version.tag_name))))?;
+  println!("[cmvm] Cleaning cache.");
   Ok(())
 }

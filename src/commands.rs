@@ -8,6 +8,7 @@ pub fn install_version(v: &str) {
       Ok(()) => {
         println!("[cmvm] Version {} installed successfully.", version.tag_name);
         use_version(&v);
+        println!("[cmvm] Done.");
       },
       Err(e) => println!("[cmvm] Error while installing version {}: {}", version.tag_name, e),
     }
@@ -27,9 +28,16 @@ pub fn list_remote_versions() {
 }
 
 pub fn list_versions() {
-  println!("[cmvm] Installed versions:");
   match versions::list_versions() {
-    Ok(versions) => println!("{}", versions),
+    Ok(versions) => {
+      if versions.len() > 0 {
+        println!("[cmvm] Installed versions:");
+        println!("{}", versions);
+      } else {
+        println!("[cmvm] No cmake versions installed yet. Use `cmvm install <version>` to install your first cmake version.");
+        println!("[cmvm] Type `cmvm help` for more information.");    
+      }
+    },
     Err(_) => println!("[cmvm] There is no versions installed yet."),
   };
 }
@@ -37,7 +45,7 @@ pub fn list_versions() {
 pub fn use_version(v: &str) {
   if let Some(version) = releases::get_release(v.to_string()) {
     match versions::use_version(&version) {
-      Ok(_) => println!("[cmvm] {} set as default version.", version.tag_name),
+      Ok(_) => println!("[cmvm] Version {} set as default.", version.tag_name),
       Err(e) => println!("[cmvm] Error when trying to set version {}: {}", version.tag_name, e),
     }
   } else {

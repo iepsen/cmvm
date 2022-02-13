@@ -10,7 +10,7 @@ mod http;
 
 fn main() {
   
-  cache::bootstrap();
+  cache::bootstrap().unwrap();
 
   let matches = App::new("cmvm")
     .about("Cmake version manager")

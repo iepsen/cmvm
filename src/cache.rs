@@ -4,27 +4,23 @@ use std::io::Read;
 
 use crate::constants::{ROOT_DIR, CACHE_DIR, VERSIONS_DIR};
 
-pub fn bootstrap() {
-    if !ROOT_DIR.exists() {
-    if fs::create_dir(ROOT_DIR.as_path()).is_err() {
-      println!("[cmvm] Unable to create .cmvm dir");
-      return;
-    }
+pub fn bootstrap() -> Result<(), Box<dyn std::error::Error>> {
+  if !ROOT_DIR.exists() {
+    fs::create_dir(ROOT_DIR.as_path())?;
+    println!("[cmvm] Creating {}", ROOT_DIR.display());
   }
 
   if !VERSIONS_DIR.exists() {
-    if fs::create_dir(VERSIONS_DIR.as_path()).is_err() {
-      println!("[cmvm] Unable to create .cmvm/versions dir");
-      return;
-    }
+    fs::create_dir(VERSIONS_DIR.as_path())?;
+    println!("[cmvm] Creating {}", VERSIONS_DIR.display());
   }
-  
+
   if !CACHE_DIR.exists() {
-    if fs::create_dir(CACHE_DIR.as_path()).is_err() {
-      println!("[cmvm] Unable to create .cmvm/cache dir");
-      return;
-    }
+    fs::create_dir(CACHE_DIR.as_path())?;
+    println!("[cmvm] Creating {}", CACHE_DIR.display());
   }
+
+  Ok(())
 }
 
 pub fn create_dir(path: Option<&Path>) -> std::io::Result<()> {
