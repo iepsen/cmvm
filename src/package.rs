@@ -26,6 +26,32 @@ struct DownloadOptions {
   files: Vec<DownloadDetail>,
 }
 
+pub fn get_cmake_release(version: &Version) -> Result<(), Box<dyn std::error::Error>> {
+  match download_asset_json(version) {
+    Ok(()) => {
+      match open_file(CACHE_DIR.join(format!("{}.json", version.tag_name))) {
+        Ok(release_version) => {
+          let download_options: DownloadOptions = serde_json::from_str(release_version.as_str()).unwrap();
+          let download_detail = download_options
+          .files
+          .iter()
+          .find(|f| f.os.contains(&"macos".to_string()) && f.class == "archive");
+
+          if let Some(download_detail) = download_detail {
+            download(version, download_detail)?;
+            uncompress(version, download_detail)?;
+            copy(version, download_detail)?;
+            clean(version)?;
+          }
+        },
+        Err(e) => println!("[cmvm] Error {}", e),
+      }
+    },
+    Err(e) => println!("[cmvm] Error {}", e),
+  }
+  Ok(())
+}
+
 fn download_asset_json(version: &Version) -> Result<(), Box<dyn std::error::Error>> {
   match get_release_asset(version) {
     Ok(asset) => {
@@ -102,31 +128,5 @@ fn copy(version: &Version, download_detail: &DownloadDetail) -> Result<(), Box<d
 fn clean(version: &Version) -> Result<(), Box<dyn std::error::Error>>{
   delete(Some(&CACHE_DIR.join(&version.tag_name)))?;
   delete(Some(&CACHE_DIR.join(format!("{}.json", version.tag_name))))?;
-  Ok(())
-}
-
-pub fn get_cmake_release(version: &Version) -> Result<(), Box<dyn std::error::Error>> {
-  match download_asset_json(version) {
-    Ok(()) => {
-      match open_file(CACHE_DIR.join(format!("{}.json", version.tag_name))) {
-        Ok(release_version) => {
-          let download_options: DownloadOptions = serde_json::from_str(release_version.as_str()).unwrap();
-          let download_detail = download_options
-          .files
-          .iter()
-          .find(|f| f.os.contains(&"macos".to_string()) && f.class == "archive");
-
-          if let Some(download_detail) = download_detail {
-            download(version, download_detail)?;
-            uncompress(version, download_detail)?;
-            copy(version, download_detail)?;
-            clean(version)?;
-          }
-        },
-        Err(e) => println!("[cmvm] Error {}", e),
-      }
-    },
-    Err(e) => println!("[cmvm] Error {}", e),
-  }
   Ok(())
 }
