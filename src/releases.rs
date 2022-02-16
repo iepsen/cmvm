@@ -1,8 +1,9 @@
 use std::{fs, io::Write, thread};
 use serde_json::{Value};
-
-use crate::{cache::{delete, create_file, open_file}, constants::{BASE_URL, CACHE_DIR, RELEASES_FILE_NAME}, versions::{Version, Asset}};
+use crate::constants::{BASE_URL, CACHE_DIR, RELEASES_FILE_NAME};
+use crate::cache;
 use crate::http;
+use crate::versions::{Version, Asset};
 
 pub fn build_cache() {
   if !CACHE_DIR.join(RELEASES_FILE_NAME).exists() {
@@ -58,10 +59,10 @@ fn generate_cache(page: Option<i32>) -> Result<(), Box<dyn std::error::Error>> {
     let current_page_file = CACHE_DIR.join(format!("{}.json", current_page));
 
     if current_page_file.exists() {
-      delete(Some(&current_page_file))?;
+      cache::delete(Some(&current_page_file))?;
     }
 
-    let mut file = create_file(current_page_file.as_path())?;
+    let mut file = cache::create_file(current_page_file.as_path())?;
     response.copy_to(&mut file)?;
 
     if first_page {
@@ -87,7 +88,7 @@ fn merge(pages: i32) -> Result<(), Box<dyn std::error::Error>> {
   let mut releases: Vec<Value> = Vec::new();
 
   if CACHE_DIR.join(RELEASES_FILE_NAME).exists() {
-    delete(Some(&CACHE_DIR.join(RELEASES_FILE_NAME)))?;
+    cache::delete(Some(&CACHE_DIR.join(RELEASES_FILE_NAME)))?;
   }
 
   for page in 1..pages + 1 {
@@ -108,7 +109,7 @@ fn merge(pages: i32) -> Result<(), Box<dyn std::error::Error>> {
     }
   }
 
-  let mut cache_file = create_file(&CACHE_DIR.join(RELEASES_FILE_NAME)).unwrap();
+  let mut cache_file = cache::create_file(&CACHE_DIR.join(RELEASES_FILE_NAME)).unwrap();
   let cache_json = serde_json::to_string(&releases).unwrap();
   let cache_result = cache_file.write(cache_json.as_bytes());
 
@@ -126,7 +127,7 @@ fn get_number_of_pages(link_header: &str) -> Result<i32, i32> {
 }
 
 fn get_releases() -> Result<Vec<Version>, Box<dyn std::error::Error>> {
-  let releases = open_file(CACHE_DIR.join(RELEASES_FILE_NAME));
+  let releases = cache::open_file(CACHE_DIR.join(RELEASES_FILE_NAME));
   let raw_versions: Vec<Value> = serde_json::from_str(releases.unwrap().as_str()).unwrap();
   let mut versions: Vec<Version> = Vec::new();
   for raw_version in raw_versions {

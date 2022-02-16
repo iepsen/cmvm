@@ -1,17 +1,14 @@
 use std::fs;
-
 use flate2::read::GzDecoder;
 use serde::{Deserialize, Serialize};
 use tar::Archive;
-
-use fs_extra::dir;
 extern crate fs_extra;
-
+use fs_extra::dir;
 use crate::constants::{CACHE_DIR, VERSIONS_DIR, BASE_RELEASE_URL};
-use crate::cache::{open_file, create_file, create_dir, delete};
+use crate::cache;
+use crate::http;
+use crate::releases;
 use crate::versions::Version;
-use crate::{http};
-use crate::releases::{get_release_asset};
 
 #[derive(Serialize, Deserialize, Debug)]
 struct DownloadDetail {
@@ -29,7 +26,7 @@ struct DownloadOptions {
 pub fn get_cmake_release(version: &Version) -> Result<(), Box<dyn std::error::Error>> {
   match download_asset_json(version) {
     Ok(()) => {
-      match open_file(CACHE_DIR.join(format!("{}.json", version.tag_name))) {
+      match cache::open_file(CACHE_DIR.join(format!("{}.json", version.tag_name))) {
         Ok(release_version) => {
           let download_options: DownloadOptions = serde_json::from_str(release_version.as_str()).unwrap();
           let download_detail = download_options
@@ -53,12 +50,12 @@ pub fn get_cmake_release(version: &Version) -> Result<(), Box<dyn std::error::Er
 }
 
 fn download_asset_json(version: &Version) -> Result<(), Box<dyn std::error::Error>> {
-  match get_release_asset(version) {
+  match releases::get_release_asset(version) {
     Ok(asset) => {
       if let Some(asset) = asset {
         let mut response = http::get(asset.browser_download_url.as_str()).unwrap();
         if response.status().is_success() {
-          let mut file = create_file(&CACHE_DIR.join(format!("{}.json", version.tag_name)))?;
+          let mut file = cache::create_file(&CACHE_DIR.join(format!("{}.json", version.tag_name)))?;
           response.copy_to(&mut file)?;
         }
       }
@@ -72,17 +69,17 @@ fn download(version: &Version, download_detail: &DownloadDetail) -> Result<(), B
   let path = CACHE_DIR.join(&version.tag_name);
 
   if path.exists() {
-    delete(Some(&path))?;
+    cache::delete(Some(&path))?;
   }
 
-  create_dir(Some(&path))?;
+  cache::create_dir(Some(&path))?;
 
   let package_name = download_detail.name.as_str();
   let package_url = format!("{}/{}/{}", BASE_RELEASE_URL, version.tag_name, package_name);
 
   println!("[cmvm] Downloading {}.", package_url);
   let mut response = http::get(package_url.as_str()).unwrap();
-  let mut file = create_file(&CACHE_DIR.join(&version.tag_name).join(package_name))?;
+  let mut file = cache::create_file(&CACHE_DIR.join(&version.tag_name).join(package_name))?;
   response.copy_to(&mut file)?;
 
   Ok(())
@@ -118,10 +115,10 @@ fn copy(version: &Version, download_detail: &DownloadDetail) -> Result<(), Box<d
   }
 
   if VERSIONS_DIR.join(&version.tag_name).exists() {
-    delete(Some(&VERSIONS_DIR.join(&version.tag_name))).unwrap();
+    cache::delete(Some(&VERSIONS_DIR.join(&version.tag_name))).unwrap();
   }
 
-  create_dir(Some(&VERSIONS_DIR.join(&version.tag_name))).unwrap();
+  cache::create_dir(Some(&VERSIONS_DIR.join(&version.tag_name))).unwrap();
 
   let destination_dir = VERSIONS_DIR.join(&version.tag_name);
 
@@ -133,8 +130,8 @@ fn copy(version: &Version, download_detail: &DownloadDetail) -> Result<(), Box<d
 }
 
 fn clean(version: &Version) -> Result<(), Box<dyn std::error::Error>>{
-  delete(Some(&CACHE_DIR.join(&version.tag_name)))?;
-  delete(Some(&CACHE_DIR.join(format!("{}.json", version.tag_name))))?;
+  cache::delete(Some(&CACHE_DIR.join(&version.tag_name)))?;
+  cache::delete(Some(&CACHE_DIR.join(format!("{}.json", version.tag_name))))?;
   println!("[cmvm] Cleaning cache.");
   Ok(())
 }

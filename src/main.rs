@@ -3,10 +3,10 @@ use clap::{arg, App, AppSettings};
 mod cache;
 mod constants;
 mod commands;
-mod versions;
-mod releases;
-mod package;
 mod http;
+mod package;
+mod releases;
+mod versions;
 
 fn main() {
   

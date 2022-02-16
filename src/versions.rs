@@ -1,7 +1,8 @@
 use std::{io};
 use serde_json::Value;
 use serde::{Deserialize, Serialize};
-use crate::{cache::{ls, delete, open_file}, constants::{VERSIONS_DIR, CURRENT_VERSION, CACHE_DIR, RELEASES_FILE_NAME}};
+use crate::cache;
+use crate::constants::{VERSIONS_DIR, CURRENT_VERSION, CACHE_DIR, RELEASES_FILE_NAME};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Asset {
@@ -17,7 +18,7 @@ pub struct Version {
 
 pub fn use_version(version: &Version) -> Result<(), io::Error> {
   if CURRENT_VERSION.exists() {
-    delete(Some(&CURRENT_VERSION))?;
+    cache::delete(Some(&CURRENT_VERSION))?;
   }
 
   std::os::unix::fs::symlink(
@@ -27,7 +28,7 @@ pub fn use_version(version: &Version) -> Result<(), io::Error> {
 }
 
 pub fn list_versions() -> Result<String, io::Error> {
-  let versions = ls(Some(&VERSIONS_DIR))?;
+  let versions = cache::ls(Some(&VERSIONS_DIR))?;
   let mut mapped_versions: Vec<String> = Vec::new();
   let current = CURRENT_VERSION.read_link().unwrap_or_default();
 
@@ -48,7 +49,7 @@ pub fn list_versions() -> Result<String, io::Error> {
 pub fn list_remote_versions() -> Result<String, io::Error> {
   let mut versions: Vec<String> = Vec::new();
 
-  let releases = open_file(CACHE_DIR.join(RELEASES_FILE_NAME));
+  let releases = cache::open_file(CACHE_DIR.join(RELEASES_FILE_NAME));
   let raw_versions: Vec<Value> = serde_json::from_str(releases.unwrap().as_str()).unwrap();
   for raw_version in raw_versions {
     if raw_version["tag_name"].as_str().unwrap().len() > 0 {
