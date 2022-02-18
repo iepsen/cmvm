@@ -41,16 +41,20 @@ fn main() {
 
     match matches.subcommand() {
       Some(("install", sub_matches)) => {
-        commands::install_version(sub_matches.value_of("VERSION").expect("required"));
+        commands::install_version(
+          sub_matches.value_of("VERSION").expect("required")
+        ).unwrap();
       }
       Some(("use", sub_matches)) => {
-        commands::use_version(sub_matches.value_of("VERSION").expect("required"));
+        commands::use_version(
+          sub_matches.value_of("VERSION").expect("required")
+        ).unwrap();
       }
       Some(("list", _)) => {
-        commands::list_versions();
+        commands::list_versions().unwrap();
       }
       Some(("list-remote", _)) => {
-        commands::list_remote_versions();
+        commands::list_remote_versions().unwrap();
       }
       Some(("version", _)) => {
         println!(

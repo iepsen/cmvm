@@ -5,7 +5,7 @@ use crate::cache;
 use crate::http;
 use crate::versions::{Version, Asset};
 
-pub fn build_cache() {
+pub fn build_cache() -> Result<(), Box<dyn std::error::Error>> {
   if !CACHE_DIR.join(RELEASES_FILE_NAME).exists() {
     println!("[cmvm] Fetching versions at first time...");
     if generate_cache(None).is_err() {
@@ -18,6 +18,7 @@ pub fn build_cache() {
       }  
     });
   }
+  Ok(())
 }
 
 pub fn get_release(version: String) -> Option<Version> {
