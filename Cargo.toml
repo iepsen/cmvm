@@ -1,8 +1,10 @@
 [package]
 name = "cmvm"
-homepage = "https://github.com/iepsen/cmvm"
+repository = "https://github.com/iepsen/cmvm"
 version = "0.3.0"
 edition = "2021"
+license-file = "LICENSE"
+categories = ["command-line-interface", "command-line-utilities", "caching"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
