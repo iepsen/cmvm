@@ -21,8 +21,9 @@ pub fn build_cache() -> Result<(), Box<dyn std::error::Error>> {
   Ok(())
 }
 
-pub fn get_release(version: String) -> Option<Version> {
-  let releases = get_releases().unwrap();
+pub fn get_release(version: String) -> Result<Option<Version>, Box<dyn std::error::Error>> {
+  let mut version_found: Option<Version> = None;
+  let releases = get_releases()?;
   let release = releases
     .iter()
     .find(|v| 
@@ -30,14 +31,14 @@ pub fn get_release(version: String) -> Option<Version> {
   );
 
   if let Some(release) = release {
-    return Some(release.clone());
+    version_found = Some(release.clone());
   }
-  return None;
+  Ok(version_found)
 }
 
 pub fn get_release_asset(version: &Version) -> Result<Option<Asset>, Box<dyn std::error::Error>>{
   let mut asset: Option<Asset> = None;
-  let releases_versions = get_releases().unwrap();
+  let releases_versions = get_releases()?;
   
   for release_version in releases_versions {
     if release_version.tag_name == version.tag_name {
@@ -68,14 +69,14 @@ fn cache_releases(page: Option<i32>) -> Result<(), Box<dyn std::error::Error>> {
 
     if first_page {
       if let Some(link_header) = response.headers().get("link") {
-        let pages = get_number_of_pages(link_header.to_str().unwrap());
-        for page in 2..pages.unwrap() + 1 {
+        let pages = get_number_of_pages(link_header.to_str()?)?;
+        for page in 2..=pages {
           let result = cache_releases(Some(page));
           if result.is_err() {
             println!("[cmvm] Unable to generate cache for page {} with error {:?}", page, result.err());
           }
         }
-        let merge_result = merge(pages.unwrap());
+        let merge_result = merge(pages);
         if merge_result.is_err() {
           println!("[cmvm] Unable to merge with error {:?}", merge_result);
         }
@@ -92,48 +93,47 @@ fn merge(pages: i32) -> Result<(), Box<dyn std::error::Error>> {
     cache::delete(Some(&CACHE_DIR.join(RELEASES_FILE_NAME)))?;
   }
 
-  for page in 1..pages + 1 {
-    let page_file_name = CACHE_DIR.join(format!("{}.json", page));
+  for page in 1..=pages {
+    let page_file = CACHE_DIR.join(format!("{}.json", page));
 
-    if page_file_name.exists() {
-      let page_file_contents = fs::read_to_string(&page_file_name).unwrap();
-      let page_releases: Value = serde_json::from_str(page_file_contents.as_str())?;
-      let page_releases_array = page_releases.as_array().unwrap();
+    if page_file.exists() {
+      let file_contents = fs::read_to_string(&page_file)?;
+      let releases_json: Value = serde_json::from_str(file_contents.as_str())?;
 
-      for page_release in page_releases_array {
-        releases.push(page_release.clone());
-      }
+      releases_json
+        .as_array()
+        .unwrap()
+        .iter()
+        .for_each(|r| releases.push(r.clone()));
 
-      if fs::remove_file(&page_file_name).is_err() {
-        println!("[cmvm] Unable to remove intermediate cache file {:?}", page_file_name);
-      }
+      fs::remove_file(&page_file)?;
     }
   }
 
-  let mut cache_file = cache::create_file(&CACHE_DIR.join(RELEASES_FILE_NAME)).unwrap();
-  let cache_json = serde_json::to_string(&releases).unwrap();
-  let cache_result = cache_file.write(cache_json.as_bytes());
+  let mut cache_file = cache::create_file(&CACHE_DIR.join(RELEASES_FILE_NAME))?;
+  let cache_json = serde_json::to_string(&releases)?;
+  cache_file.write(cache_json.as_bytes())?;
 
-  if cache_result.is_err() {
-    println!("[cmvm] Unable to create cache file with error: {:?}", cache_result.err());
-  }
   Ok(())
 }
 
-fn get_number_of_pages(link_header: &str) -> Result<i32, i32> {
-  let parsed_link_header = parse_link_header::parse(link_header).unwrap();
-  let last_link = parsed_link_header.get(&Some("last".to_string())).unwrap();
-  let last_page = last_link.queries["page"].parse::<i32>().unwrap();
-  return Ok(last_page);
+fn get_number_of_pages(link_header: &str) -> Result<i32, Box<dyn std::error::Error>> {
+  let mut last_page = 1;
+  let parsed_link_header = parse_link_header::parse(link_header)?;
+  let last_link = parsed_link_header.get(&Some("last".to_string()));
+  if let Some(last_link) = last_link {
+    last_page = last_link.queries["page"].parse::<i32>()?;
+  }
+  Ok(last_page)
 }
 
 fn get_releases() -> Result<Vec<Version>, Box<dyn std::error::Error>> {
   let releases = cache::open_file(CACHE_DIR.join(RELEASES_FILE_NAME));
-  let raw_versions: Vec<Value> = serde_json::from_str(releases.unwrap().as_str()).unwrap();
+  let raw_versions: Vec<Value> = serde_json::from_str(releases.unwrap().as_str())?;
   let mut versions: Vec<Version> = Vec::new();
   for raw_version in raw_versions {
     if raw_version["tag_name"].as_str().unwrap().len() > 0 {
-      let version: Version = serde_json::from_value(raw_version).unwrap();
+      let version: Version = serde_json::from_value(raw_version)?;
       versions.push(version);
     }
   }

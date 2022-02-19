@@ -23,18 +23,18 @@ pub fn bootstrap() -> Result<(), Box<dyn std::error::Error>> {
   Ok(())
 }
 
-pub fn create_dir(path: Option<&Path>) -> std::io::Result<()> {
+pub fn create_dir(path: Option<&Path>) -> Result<(), Box<dyn std::error::Error>> {
   let destination_path = ROOT_DIR.join(path.unwrap_or(&Path::new("")));
   fs::create_dir(destination_path)?;
   Ok(())
 }
 
-pub fn create_file(path: &Path) -> Result<fs::File, std::io::Error> {
+pub fn create_file(path: &Path) -> Result<fs::File, Box<dyn std::error::Error>> {
   if ROOT_DIR.join(path).exists() {
-    delete(Some(&ROOT_DIR.join(path))).unwrap();
+    delete(Some(&ROOT_DIR.join(path)))?;
   }
   
-  fs::File::create(ROOT_DIR.join(path))
+  Ok(fs::File::create(ROOT_DIR.join(path))?)
 }
 
 pub fn open_file(path: PathBuf) -> Result<String, Box<dyn std::error::Error>> {
@@ -45,7 +45,7 @@ pub fn open_file(path: PathBuf) -> Result<String, Box<dyn std::error::Error>> {
   Ok(contents)
 }
 
-pub fn delete(path: Option<&Path>) -> std::io::Result<()> {
+pub fn delete(path: Option<&Path>) -> Result<(), Box<dyn std::error::Error>> {
   let destination_path = ROOT_DIR.join(path.unwrap_or(&Path::new("")));
 
   if destination_path.is_dir() {
@@ -57,11 +57,10 @@ pub fn delete(path: Option<&Path>) -> std::io::Result<()> {
   Ok(())
 }
 
-pub fn ls(path: Option<&Path>) -> std::io::Result<Vec<PathBuf>> {
+pub fn ls(path: Option<&Path>) -> Result<Vec<PathBuf>, Box<dyn std::error::Error>> {
   let destination_path = ROOT_DIR.join(path.unwrap_or(&Path::new("")));
   let contents: Vec<PathBuf> = destination_path
-    .read_dir()
-    .unwrap()
+    .read_dir()?
     .filter_map(|entry| entry.ok())
     .map(|content| content.path())
     .collect();

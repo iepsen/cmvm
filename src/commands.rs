@@ -3,7 +3,7 @@ use crate::{package, releases, versions};
 pub fn install_version(v: &str) -> Result<(), Box<dyn std::error::Error>> {
   releases::build_cache()?;
 
-  if let Some(version) = releases::get_release(v.trim().to_string()) {
+  if let Some(version) = releases::get_release(v.trim().to_string())? {
     match package::get_cmake_release(&version) {
       Ok(()) => {
         println!("[cmvm] Version {} installed successfully.", version.tag_name);
@@ -46,7 +46,7 @@ pub fn list_versions() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 pub fn use_version(v: &str) -> Result<(), Box<dyn std::error::Error>> {
-  if let Some(version) = releases::get_release(v.trim().to_string()) {
+  if let Some(version) = releases::get_release(v.trim().to_string())? {
     match versions::use_version(&version) {
       Ok(_) => println!("[cmvm] Version {} set as default.", version.tag_name),
       Err(e) => println!("[cmvm] Error when trying to set version {}: {}", version.tag_name, e),

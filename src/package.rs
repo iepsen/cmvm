@@ -28,7 +28,7 @@ pub fn get_cmake_release(version: &Version) -> Result<(), Box<dyn std::error::Er
     Ok(()) => {
       match cache::open_file(CACHE_DIR.join(format!("{}.json", version.tag_name))) {
         Ok(release_version) => {
-          let download_options: DownloadOptions = serde_json::from_str(release_version.as_str()).unwrap();
+          let download_options: DownloadOptions = serde_json::from_str(release_version.as_str())?;
           let download_detail = download_options
           .files
           .iter()
@@ -53,7 +53,7 @@ fn download_asset_json(version: &Version) -> Result<(), Box<dyn std::error::Erro
   match releases::get_release_asset(version) {
     Ok(asset) => {
       if let Some(asset) = asset {
-        let mut response = http::get(asset.browser_download_url.as_str()).unwrap();
+        let mut response = http::get(asset.browser_download_url.as_str())?;
         if response.status().is_success() {
           let mut file = cache::create_file(&CACHE_DIR.join(format!("{}.json", version.tag_name)))?;
           response.copy_to(&mut file)?;
@@ -78,7 +78,7 @@ fn download(version: &Version, download_detail: &DownloadDetail) -> Result<(), B
   let package_url = format!("{}/{}/{}", BASE_RELEASE_URL, version.tag_name, package_name);
 
   println!("[cmvm] Downloading {}.", package_url);
-  let mut response = http::get(package_url.as_str()).unwrap();
+  let mut response = http::get(package_url.as_str())?;
   let mut file = cache::create_file(&CACHE_DIR.join(&version.tag_name).join(package_name))?;
   response.copy_to(&mut file)?;
 
@@ -86,7 +86,7 @@ fn download(version: &Version, download_detail: &DownloadDetail) -> Result<(), B
 }
 
 fn uncompress(version: &Version, download_detail: &DownloadDetail) -> Result<(), Box<dyn std::error::Error>> {
-  let compressed_file = fs::read(CACHE_DIR.join(&version.tag_name).join(&download_detail.name)).unwrap();
+  let compressed_file = fs::read(CACHE_DIR.join(&version.tag_name).join(&download_detail.name))?;
   let gz = GzDecoder::new(&*compressed_file);
   let mut archive = Archive::new(gz);
   println!("[cmvm] Uncompressing {}.", download_detail.name);
@@ -115,15 +115,13 @@ fn copy(version: &Version, download_detail: &DownloadDetail) -> Result<(), Box<d
   }
 
   if VERSIONS_DIR.join(&version.tag_name).exists() {
-    cache::delete(Some(&VERSIONS_DIR.join(&version.tag_name))).unwrap();
+    cache::delete(Some(&VERSIONS_DIR.join(&version.tag_name)))?;
   }
 
-  cache::create_dir(Some(&VERSIONS_DIR.join(&version.tag_name))).unwrap();
-
+  cache::create_dir(Some(&VERSIONS_DIR.join(&version.tag_name)))?;
   let destination_dir = VERSIONS_DIR.join(&version.tag_name);
 
   println!("[cmvm] Setting up {}.", &version.tag_name);
-
   fs_extra::copy_items(&from_paths, destination_dir, &options)?;
 
   Ok(())
