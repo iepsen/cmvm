@@ -8,12 +8,12 @@ use crate::versions::{Version, Asset};
 pub fn build_cache() -> Result<(), Box<dyn std::error::Error>> {
   if !CACHE_DIR.join(RELEASES_FILE_NAME).exists() {
     println!("[cmvm] Fetching versions at first time...");
-    if generate_cache(None).is_err() {
+    if cache_releases(None).is_err() {
       println!("[cmvm] Failed to fetch remote versions");
     }
   } else {
     thread::spawn(|| {
-      if generate_cache(None).is_err() {
+      if cache_releases(None).is_err() {
         println!("[cmvm] Failed to fetch remote versions");
       }  
     });
@@ -51,7 +51,7 @@ pub fn get_release_asset(version: &Version) -> Result<Option<Asset>, Box<dyn std
   Ok(asset)
 }
 
-fn generate_cache(page: Option<i32>) -> Result<(), Box<dyn std::error::Error>> {
+fn cache_releases(page: Option<i32>) -> Result<(), Box<dyn std::error::Error>> {
   let current_page = page.unwrap_or(1);
   let first_page = current_page == 1;
   let mut response = http::get(format!("{}?page={}", BASE_URL, current_page).as_str())?;
@@ -70,7 +70,7 @@ fn generate_cache(page: Option<i32>) -> Result<(), Box<dyn std::error::Error>> {
       if let Some(link_header) = response.headers().get("link") {
         let pages = get_number_of_pages(link_header.to_str().unwrap());
         for page in 2..pages.unwrap() + 1 {
-          let result = generate_cache(Some(page));
+          let result = cache_releases(Some(page));
           if result.is_err() {
             println!("[cmvm] Unable to generate cache for page {} with error {:?}", page, result.err());
           }
