@@ -1,67 +1,52 @@
-use clap::{arg, App, AppSettings};
+use clap::{Parser, Subcommand};
 
 mod cache;
-mod constants;
 mod commands;
+mod constants;
 mod http;
 mod package;
 mod releases;
 mod versions;
 
-fn main() {
-  
-  cache::bootstrap().unwrap();
+#[derive(Parser)]
+#[clap(version, about = "cmake version manager")]
+#[clap(propagate_version = true)]
+struct Cli {
+    #[clap(subcommand)]
+    command: Commands,
+}
 
-  let matches = App::new("cmvm")
-    .about("Cmake version manager")
-    .setting(AppSettings::SubcommandRequiredElseHelp)
-    .setting(AppSettings::AllowExternalSubcommands)
-    .setting(AppSettings::AllowInvalidUtf8ForExternalSubcommands)
-    .subcommand(
-      App::new("install")
-        .about("Install a new cmake version")
-        .arg(arg!(<VERSION> "The cmake version to install"))
-        .setting(AppSettings::ArgRequiredElseHelp),
-    )
-    .subcommand(
-      App::new("use")
-        .about("Set a cmake version to use")
-        .arg(arg!(<VERSION> "The cmake version to use"))
-        .setting(AppSettings::ArgRequiredElseHelp),
-    )
-    .subcommand(
-      App::new("list")
-        .about("List installed cmake versions")
-    )
-    .subcommand(
-      App::new("list-remote")
-        .about("List remove cmake versions available")
-    )
-    .subcommand(App::new("version").about("cmvm version")).get_matches();
+#[derive(Subcommand)]
+enum Commands {
+    /// Install a cmake version
+    Install { version: String },
 
-    match matches.subcommand() {
-      Some(("install", sub_matches)) => {
-        commands::install_version(
-          sub_matches.value_of("VERSION").expect("required")
-        ).unwrap();
-      }
-      Some(("use", sub_matches)) => {
-        commands::use_version(
-          sub_matches.value_of("VERSION").expect("required")
-        ).unwrap();
-      }
-      Some(("list", _)) => {
-        commands::list_versions().unwrap();
-      }
-      Some(("list-remote", _)) => {
-        commands::list_remote_versions().unwrap();
-      }
-      Some(("version", _)) => {
-        println!(
-          "cmvm version: {}",
-          env!("CARGO_PKG_VERSION")
-        );
-      }
-      _ => unreachable!(),
+    /// Use a cmake version
+    Use { version: String },
+
+    /// List all cmake versions installed
+    List,
+
+    /// List available cmake versions to install
+    ListRemote,
+}
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    cache::bootstrap()?;
+
+    match Cli::parse().command {
+        Commands::Install { version } => {
+            commands::install_version(&version)?;
+        }
+        Commands::Use { version } => {
+            commands::use_version(&version)?;
+        }
+        Commands::List => {
+            commands::list_versions()?;
+        }
+        Commands::ListRemote => {
+            commands::list_remote_versions()?;
+        }
     }
+    Ok(())
 }
