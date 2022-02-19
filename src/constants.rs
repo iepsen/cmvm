@@ -1,7 +1,7 @@
 use lazy_static::lazy_static;
-use std::{path::PathBuf};
+use std::path::PathBuf;
 
-lazy_static!{
+lazy_static! {
   #[derive(Debug)]
   pub static ref ROOT_DIR: PathBuf = {
     dirs::home_dir().unwrap().join(".cmvm")
