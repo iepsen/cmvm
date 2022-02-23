@@ -1,9 +1,13 @@
-use crate::{package, releases, versions};
+use crate::{package, platform::is_supported_platform, releases, versions};
 
 pub fn install_version(v: &String) -> Result<(), Box<dyn std::error::Error>> {
     releases::build_cache()?;
 
     if let Some(version) = releases::get_release(v.trim().to_string())? {
+        if !is_supported_platform() {
+            Err("Platform not supported.")?;
+        }
+
         match package::get_cmake_release(&version) {
             Ok(()) => {
                 println!(
@@ -18,9 +22,10 @@ pub fn install_version(v: &String) -> Result<(), Box<dyn std::error::Error>> {
                 version.tag_name, e
             ),
         }
-    } else {
-        println!("[cmvm] Version {} not found.", v);
     }
+
+    println!("[cmvm] Version {} not found.", v);
+
     Ok(())
 }
 

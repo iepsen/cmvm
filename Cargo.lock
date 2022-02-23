@@ -110,6 +110,7 @@ dependencies = [
  "fs_extra",
  "lazy_static",
  "parse_link_header",
+ "regex",
  "reqwest",
  "serde",
  "serde_json",

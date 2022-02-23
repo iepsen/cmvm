@@ -5,6 +5,7 @@ mod commands;
 mod constants;
 mod http;
 mod package;
+mod platform;
 mod releases;
 mod versions;
 

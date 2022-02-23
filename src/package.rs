@@ -6,6 +6,7 @@ extern crate fs_extra;
 use crate::cache;
 use crate::constants::{BASE_RELEASE_URL, CACHE_DIR, VERSIONS_DIR};
 use crate::http;
+use crate::platform::get_platform_info;
 use crate::releases;
 use crate::versions::Version;
 use fs_extra::dir;
@@ -27,12 +28,15 @@ pub fn get_cmake_release(version: &Version) -> Result<(), Box<dyn std::error::Er
     match download_asset_json(version) {
         Ok(()) => match cache::open_file(CACHE_DIR.join(format!("{}.json", version.tag_name))) {
             Ok(release_version) => {
+                let platform_info = get_platform_info()?;
+                println!("{:?}", platform_info);
+
                 let download_options: DownloadOptions =
                     serde_json::from_str(release_version.as_str())?;
-                let download_detail = download_options
-                    .files
-                    .iter()
-                    .find(|f| f.os.contains(&"macos".to_string()) && f.class == "archive");
+                let download_detail = download_options.files.iter().find(|f| {
+                    println!("{}", platform_info.name);
+                    f.os.iter().any(|detail| detail == &platform_info.name) && f.class == "archive"
+                });
 
                 if let Some(download_detail) = download_detail {
                     download(version, download_detail)?;
