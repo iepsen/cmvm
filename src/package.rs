@@ -29,12 +29,9 @@ pub fn get_cmake_release(version: &Version) -> Result<(), Box<dyn std::error::Er
         Ok(()) => match cache::open_file(CACHE_DIR.join(format!("{}.json", version.tag_name))) {
             Ok(release_version) => {
                 let platform_info = get_platform_info()?;
-                println!("{:?}", platform_info);
-
                 let download_options: DownloadOptions =
                     serde_json::from_str(release_version.as_str())?;
                 let download_detail = download_options.files.iter().find(|f| {
-                    println!("{}", platform_info.name);
                     f.os.iter().any(|detail| detail == &platform_info.name) && f.class == "archive"
                 });
 
@@ -53,21 +50,12 @@ pub fn get_cmake_release(version: &Version) -> Result<(), Box<dyn std::error::Er
 }
 
 fn download_asset_json(version: &Version) -> Result<(), Box<dyn std::error::Error>> {
-    match releases::get_release_asset(version) {
-        Ok(asset) => {
-            if let Some(asset) = asset {
-                let mut response = http::get(asset.browser_download_url.as_str())?;
-                if response.status().is_success() {
-                    let mut file =
-                        cache::create_file(&CACHE_DIR.join(format!("{}.json", version.tag_name)))?;
-                    response.copy_to(&mut file)?;
-                }
-            }
-        }
-        Err(e) => println!(
-            "[cmvm] Error trying to get release url for version {}: {}",
-            version.tag_name, e
-        ),
+    let asset = releases::get_release_asset(version)?;
+    if let Some(asset) = asset {
+        let mut response = http::get(asset.browser_download_url.as_str())?;
+        let file_path = &CACHE_DIR.join(format!("{}.json", version.tag_name));
+        let mut file = cache::create_file(file_path)?;
+        response.copy_to(&mut file)?;
     }
     Ok(())
 }
@@ -89,7 +77,8 @@ fn download(
 
     println!("[cmvm] Downloading {}.", package_url);
     let mut response = http::get(package_url.as_str())?;
-    let mut file = cache::create_file(&CACHE_DIR.join(&version.tag_name).join(package_name))?;
+    let file_path = &CACHE_DIR.join(&version.tag_name).join(package_name);
+    let mut file = cache::create_file(file_path)?;
     response.copy_to(&mut file)?;
 
     Ok(())

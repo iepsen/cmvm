@@ -3,7 +3,13 @@ use crate::{package, platform::is_supported_platform, releases, versions};
 pub fn install_version(v: &String) -> Result<(), Box<dyn std::error::Error>> {
     releases::build_cache()?;
 
-    if let Some(version) = releases::get_release(v.trim().to_string())? {
+    if let Some(_) = releases::get_release(v)? {
+        println!("[cmvm] Version {} already installed.", v);
+        use_version(&v)?;
+        return Ok(());
+    }
+
+    if let Some(version) = releases::get_release(&v.trim().to_string())? {
         if !is_supported_platform() {
             Err("Platform not supported.")?;
         }
@@ -57,7 +63,7 @@ pub fn list_versions() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 pub fn use_version(v: &str) -> Result<(), Box<dyn std::error::Error>> {
-    if let Some(version) = releases::get_release(v.trim().to_string())? {
+    if let Some(version) = releases::get_release(&v.trim().to_string())? {
         match versions::use_version(&version) {
             Ok(_) => println!("[cmvm] Version {} set as default.", version.tag_name),
             Err(e) => println!(

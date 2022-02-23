@@ -21,17 +21,18 @@ pub fn build_cache() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-pub fn get_release(version: String) -> Result<Option<Version>, Box<dyn std::error::Error>> {
-    let mut version_found: Option<Version> = None;
+pub fn get_release(version: &String) -> Result<Option<Version>, Box<dyn std::error::Error>> {
     let releases = get_releases()?;
     let release = releases
         .iter()
-        .find(|v| v.tag_name.replace("v", "") == version);
+        .find(|v| &v.tag_name.replace("v", "") == version);
 
     if let Some(release) = release {
-        version_found = Some(release.clone());
+        let mut release_found: Version = release.clone();
+        release_found.tag_name = release.tag_name.replace("v", "");
+        return Ok(Some(release_found));
     }
-    Ok(version_found)
+    Ok(None)
 }
 
 pub fn get_release_asset(version: &Version) -> Result<Option<Asset>, Box<dyn std::error::Error>> {
@@ -55,34 +56,26 @@ fn cache_releases(page: Option<i32>) -> Result<(), Box<dyn std::error::Error>> {
     let first_page = current_page == 1;
     let mut response = http::get(format!("{}?page={}", BASE_URL, current_page).as_str())?;
 
-    if response.status().is_success() {
-        let current_page_file = CACHE_DIR.join(format!("{}.json", current_page));
+    if !response.status().is_success() {
+        Err("[cmvm] Something went wrong")?;
+    }
 
-        if current_page_file.exists() {
-            cache::delete(Some(&current_page_file))?;
-        }
+    let current_page_file = CACHE_DIR.join(format!("{}.json", current_page));
 
-        let mut file = cache::create_file(current_page_file.as_path())?;
-        response.copy_to(&mut file)?;
+    if current_page_file.exists() {
+        cache::delete(Some(&current_page_file))?;
+    }
 
-        if first_page {
-            if let Some(link_header) = response.headers().get("link") {
-                let pages = get_number_of_pages(link_header.to_str()?)?;
-                for page in 2..=pages {
-                    let result = cache_releases(Some(page));
-                    if result.is_err() {
-                        println!(
-                            "[cmvm] Unable to generate cache for page {} with error {:?}",
-                            page,
-                            result.err()
-                        );
-                    }
-                }
-                let merge_result = merge(pages);
-                if merge_result.is_err() {
-                    println!("[cmvm] Unable to merge with error {:?}", merge_result);
-                }
+    let mut file = cache::create_file(current_page_file.as_path())?;
+    response.copy_to(&mut file)?;
+
+    if first_page {
+        if let Some(link_header) = response.headers().get("link") {
+            let pages = get_number_of_pages(link_header.to_str()?)?;
+            for page in 2..=pages {
+                cache_releases(Some(page))?;
             }
+            merge(pages)?;
         }
     }
     Ok(())
