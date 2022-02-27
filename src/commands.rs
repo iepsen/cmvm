@@ -1,15 +1,16 @@
-use crate::{package, platform::is_supported_platform, releases, versions};
+use crate::{
+    constants::VERSIONS_DIR, package, platform::is_supported_platform, releases, versions,
+};
 
 pub fn install_version(v: &String) -> Result<(), Box<dyn std::error::Error>> {
     releases::build_cache()?;
 
-    if let Some(_) = releases::get_release(v)? {
-        println!("[cmvm] Version {} already installed.", v);
-        use_version(&v)?;
-        return Ok(());
-    }
-
     if let Some(version) = releases::get_release(&v.trim().to_string())? {
+        if VERSIONS_DIR.join(&version.tag_name).exists() {
+            println!("[cmvm] Version {} already installed.", v);
+            use_version(&v)?;
+            return Ok(());
+        }
         if !is_supported_platform() {
             Err("Platform not supported.")?;
         }
@@ -18,7 +19,7 @@ pub fn install_version(v: &String) -> Result<(), Box<dyn std::error::Error>> {
             Ok(()) => {
                 println!(
                     "[cmvm] Version {} installed successfully.",
-                    version.tag_name
+                    &version.tag_name
                 );
                 use_version(&v)?;
                 println!("[cmvm] Done.");
@@ -32,6 +33,14 @@ pub fn install_version(v: &String) -> Result<(), Box<dyn std::error::Error>> {
 
     println!("[cmvm] Version {} not found.", v);
 
+    Ok(())
+}
+
+pub fn uninstall_version(v: &String) -> Result<(), Box<dyn std::error::Error>> {
+    match releases::delete_cache_release(v) {
+        Ok(()) => println!("[cmvm] Version {} uninstalled successfully.", v),
+        Err(e) => println!("[cmvm] Version {} is not installed. {}", v, e),
+    }
     Ok(())
 }
 

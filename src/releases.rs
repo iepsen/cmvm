@@ -1,5 +1,5 @@
 use crate::cache;
-use crate::constants::{BASE_URL, CACHE_DIR, RELEASES_FILE_NAME};
+use crate::constants::{BASE_URL, CACHE_DIR, CURRENT_VERSION, RELEASES_FILE_NAME, VERSIONS_DIR};
 use crate::http;
 use crate::versions::{Asset, Version};
 use serde_json::Value;
@@ -36,19 +36,38 @@ pub fn get_release(version: &String) -> Result<Option<Version>, Box<dyn std::err
 }
 
 pub fn get_release_asset(version: &Version) -> Result<Option<Asset>, Box<dyn std::error::Error>> {
-    let mut asset: Option<Asset> = None;
     let releases_versions = get_releases()?;
 
+    let mut asset: Option<Asset> = None;
     for release_version in releases_versions {
-        if release_version.tag_name == version.tag_name {
-            for version_asset in release_version.assets {
-                if version_asset.content_type == "application/json" {
-                    asset = Some(version_asset);
-                }
-            }
+        if release_version.tag_name.replace("v", "") == version.tag_name {
+            asset = get_asset(release_version);
         }
     }
     Ok(asset)
+}
+
+pub fn delete_cache_release(version: &String) -> Result<(), Box<dyn std::error::Error>> {
+    if let Some(release) = get_release(version)? {
+        let version_path = VERSIONS_DIR.join(release.tag_name);
+        if CURRENT_VERSION.read_link()? == version_path {
+            cache::delete(Some(&CURRENT_VERSION))?;
+        }
+        cache::delete(Some(version_path.as_path()))?;
+    }
+
+    Ok(())
+}
+
+pub fn get_asset(version: Version) -> Option<Asset> {
+    let mut asset: Option<Asset> = None;
+
+    for version_asset in version.assets {
+        if version_asset.content_type == "application/json" {
+            asset = Some(version_asset);
+        }
+    }
+    asset
 }
 
 fn cache_releases(page: Option<i32>) -> Result<(), Box<dyn std::error::Error>> {

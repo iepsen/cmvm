@@ -22,6 +22,9 @@ enum Commands {
     /// Install a cmake version
     Install { version: String },
 
+    /// Uninstall a cmake version
+    Uninstall { version: String },
+
     /// Use a cmake version
     Use { version: String },
 
@@ -38,6 +41,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     match Cli::parse().command {
         Commands::Install { version } => {
             commands::install_version(&version)?;
+        }
+        Commands::Uninstall { version } => {
+            commands::uninstall_version(&version)?;
         }
         Commands::Use { version } => {
             commands::use_version(&version)?;
