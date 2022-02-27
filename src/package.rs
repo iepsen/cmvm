@@ -107,15 +107,14 @@ fn copy(tag_name: &String, asset: &Asset) -> Result<(), Box<dyn std::error::Erro
     cache::create_dir(Some(&VERSIONS_DIR.join(tag_name)))?;
     let destination_dir = VERSIONS_DIR.join(tag_name);
 
-    println!("[cmvm] Setting up {}.", tag_name);
     fs_extra::copy_items(&from_paths, destination_dir, &options)?;
+    println!("[cmvm] Setting up {}.", tag_name);
 
     Ok(())
 }
 
 fn clean(tag_name: &String) -> Result<(), Box<dyn std::error::Error>> {
     cache::delete(Some(&CACHE_DIR.join(tag_name)))?;
-    cache::delete(Some(&CACHE_DIR.join(format!("{}.json", tag_name))))?;
     println!("[cmvm] Cleaning cache.");
     Ok(())
 }

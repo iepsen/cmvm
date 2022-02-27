@@ -29,9 +29,9 @@ pub fn install_version(v: &String) -> Result<(), Box<dyn std::error::Error>> {
                 version.tag_name, e
             ),
         }
+    } else {
+        println!("[cmvm] Version {} not found.", v);
     }
-
-    println!("[cmvm] Version {} not found.", v);
 
     Ok(())
 }
