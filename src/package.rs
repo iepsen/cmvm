@@ -25,26 +25,21 @@ struct DownloadOptions {
 }
 
 pub fn get_cmake_release(version: &Version) -> Result<(), Box<dyn std::error::Error>> {
-    match download_asset_json(version) {
-        Ok(()) => match cache::open_file(CACHE_DIR.join(format!("{}.json", version.tag_name))) {
-            Ok(release_version) => {
-                let platform_info = get_platform_info()?;
-                let download_options: DownloadOptions =
-                    serde_json::from_str(release_version.as_str())?;
-                let download_detail = download_options.files.iter().find(|f| {
-                    f.os.iter().any(|detail| detail == &platform_info.name) && f.class == "archive"
-                });
+    download_asset_json(version).expect("[cmvm] download_asset_json error");
 
-                if let Some(download_detail) = download_detail {
-                    download(version, download_detail)?;
-                    uncompress(version, download_detail)?;
-                    copy(version, download_detail)?;
-                    clean(version)?;
-                }
-            }
-            Err(e) => println!("[cmvm] Error {}", e),
-        },
-        Err(e) => println!("[cmvm] Error {}", e),
+    let release_version = cache::open_file(CACHE_DIR.join(format!("{}.json", version.tag_name)))?;
+    let platform_info = get_platform_info()?;
+    let download_options: DownloadOptions = serde_json::from_str(release_version.as_str())?;
+    let download_detail = download_options
+        .files
+        .iter()
+        .find(|f| f.os.iter().any(|detail| detail == &platform_info.name) && f.class == "archive");
+
+    if let Some(download_detail) = download_detail {
+        download(version, download_detail)?;
+        uncompress(version, download_detail)?;
+        copy(version, download_detail)?;
+        clean(version)?;
     }
     Ok(())
 }
@@ -73,7 +68,10 @@ fn download(
     cache::create_dir(Some(&path))?;
 
     let package_name = download_detail.name.as_str();
-    let package_url = format!("{}/{}/{}", BASE_RELEASE_URL, version.tag_name, package_name);
+    let package_url = format!(
+        "{}/{}{}/{}",
+        BASE_RELEASE_URL, "v", version.tag_name, package_name
+    );
 
     println!("[cmvm] Downloading {}.", package_url);
     let mut response = http::get(package_url.as_str())?;
@@ -93,8 +91,10 @@ fn uncompress(
             .join(&version.tag_name)
             .join(&download_detail.name),
     )?;
+
     let gz = GzDecoder::new(&*compressed_file);
     let mut archive = Archive::new(gz);
+
     println!("[cmvm] Uncompressing {}.", download_detail.name);
     archive.unpack(&CACHE_DIR.join(&version.tag_name))?;
 
