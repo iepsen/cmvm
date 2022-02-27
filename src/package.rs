@@ -3,12 +3,12 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use tar::Archive;
 extern crate fs_extra;
-use crate::cache;
 use crate::constants::{BASE_RELEASE_URL, CACHE_DIR, VERSIONS_DIR};
 use crate::http;
 use crate::platform::get_platform_info;
 use crate::releases;
-use crate::versions::Version;
+use crate::versions::{Asset, Version};
+use crate::{cache, platform};
 use fs_extra::dir;
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -42,6 +42,26 @@ pub fn get_cmake_release(version: &Version) -> Result<(), Box<dyn std::error::Er
         clean(version)?;
     }
     Ok(())
+}
+
+pub fn filter_platform_assets(version: &Version) -> Vec<&Asset> {
+    let supported_definitions = platform::supported_definition();
+    version
+        .assets
+        .iter()
+        .filter(|asset| {
+            supported_definitions
+                .content_types
+                .contains(&asset.content_type)
+        })
+        .filter(|asset| {
+            supported_definitions
+                .name_contains
+                .iter()
+                .find(|pattern| asset.name.contains(pattern.as_str()))
+                != None
+        })
+        .collect()
 }
 
 fn download_asset_json(version: &Version) -> Result<(), Box<dyn std::error::Error>> {

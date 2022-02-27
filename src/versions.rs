@@ -1,10 +1,11 @@
-use crate::cache;
 use crate::constants::{CACHE_DIR, CURRENT_VERSION, RELEASES_FILE_NAME, VERSIONS_DIR};
+use crate::{cache, package};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Asset {
+    pub name: String,
     pub content_type: String,
     pub browser_download_url: String,
 }
@@ -55,13 +56,12 @@ pub fn list_remote_versions() -> Result<String, Box<dyn std::error::Error>> {
     let releases = cache::open_file(CACHE_DIR.join(RELEASES_FILE_NAME))?;
     let raw_versions: Vec<Value> = serde_json::from_str(releases.as_str())?;
     for raw_version in raw_versions {
-        if let Some(tag_name) = raw_version["tag_name"].as_str() {
-            if tag_name.len() > 0 {
-                let version: Version = serde_json::from_value(raw_version)?;
-                versions.push(format!("[cmvm] {}", version.tag_name.replace("v", "")));
-            }
+        let version: Version = serde_json::from_value(raw_version)?;
+        let assets: Vec<&Asset> = package::filter_platform_assets(&version);
+
+        if assets.len() > 0 {
+            versions.push(format!("[cmvm] {}", version.tag_name.replace("v", "")));
         }
     }
-
     Ok(versions.join("\n"))
 }

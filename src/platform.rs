@@ -1,6 +1,12 @@
 use regex::Regex;
 use std::process::Command;
 
+type Error = dyn std::error::Error;
+#[derive(Debug)]
+pub struct SupportedDefinition {
+    pub content_types: Vec<String>,
+    pub name_contains: Vec<String>,
+}
 #[derive(Debug)]
 pub struct PlatformInfo {
     pub version: OperatingSystemVersion,
@@ -17,7 +23,22 @@ pub fn is_supported_platform() -> bool {
     std::env::consts::OS == "macos"
 }
 
-pub fn get_platform_info() -> Result<PlatformInfo, Box<dyn std::error::Error>> {
+pub fn supported_definition() -> SupportedDefinition {
+    macos_supported_definition()
+}
+
+fn macos_supported_definition() -> SupportedDefinition {
+    SupportedDefinition {
+        name_contains: vec![
+            "-macos-".to_string(),
+            "-macos10.10-".to_string(),
+            "-Darwin-".to_string(),
+        ],
+        content_types: vec!["application/gzip".to_string()],
+    }
+}
+
+pub fn get_platform_info() -> Result<PlatformInfo, Box<Error>> {
     let output = Command::new("sw_vers").output()?;
 
     let stdout = String::from_utf8_lossy(&output.stdout);
@@ -42,9 +63,7 @@ fn extract_from_regex(stdout: &String, regex: Regex) -> Option<String> {
     }
 }
 
-pub fn parse_version(
-    version_str: String,
-) -> Result<OperatingSystemVersion, Box<dyn std::error::Error>> {
+fn parse_version(version_str: String) -> Result<OperatingSystemVersion, Box<Error>> {
     let regex = Regex::new(r"ProductVersion:\s(\w+\.\w+\.\w+)").unwrap();
 
     let system_version = match extract_from_regex(&version_str, regex) {
