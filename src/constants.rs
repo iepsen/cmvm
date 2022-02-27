@@ -24,6 +24,4 @@ lazy_static! {
 
 pub static BASE_URL: &str = "https://api.github.com/repos/Kitware/CMake/releases";
 
-pub static BASE_RELEASE_URL: &str = "https://github.com/Kitware/CMake/releases/download";
-
 pub static RELEASES_FILE_NAME: &str = "releases.json";

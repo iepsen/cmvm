@@ -1,5 +1,5 @@
 use crate::constants::{CACHE_DIR, CURRENT_VERSION, RELEASES_FILE_NAME, VERSIONS_DIR};
-use crate::{cache, package};
+use crate::{cache, package, platform};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -57,11 +57,31 @@ pub fn list_remote_versions() -> Result<String, Box<dyn std::error::Error>> {
     let raw_versions: Vec<Value> = serde_json::from_str(releases.as_str())?;
     for raw_version in raw_versions {
         let version: Version = serde_json::from_value(raw_version)?;
+        let tag_name = version.tag_name.replace("v", "");
+
+        // skip release canditate versions
+        if tag_name.contains("-rc") {
+            continue;
+        }
+
+        let supported_definition = platform::supported_definition();
+        let major_version = get_major_version(&tag_name);
+
+        // skip releases that doesn't match the required major version
+        if major_version < supported_definition.major_version_required {
+            continue;
+        }
+
         let assets: Vec<&Asset> = package::filter_platform_assets(&version);
 
         if assets.len() > 0 {
-            versions.push(format!("[cmvm] {}", version.tag_name.replace("v", "")));
+            versions.push(format!("[cmvm] {}", tag_name));
         }
     }
     Ok(versions.join("\n"))
+}
+
+fn get_major_version(tag_name: &String) -> i32 {
+    let mut split_version = tag_name.split(".");
+    split_version.next().unwrap().parse::<i32>().unwrap()
 }
