@@ -16,6 +16,12 @@ pub struct Version {
     pub assets: Vec<Asset>,
 }
 
+impl Version {
+    pub fn get_tag_name(&self) -> String {
+        self.tag_name.replace("v", "")
+    }
+}
+
 pub fn use_version(version: &Version) -> Result<(), Box<dyn std::error::Error>> {
     if CURRENT_VERSION.exists() {
         cache::delete(Some(&CURRENT_VERSION))?;
@@ -42,7 +48,7 @@ pub fn list_versions() -> Result<String, Box<dyn std::error::Error>> {
             }
 
             if let Some(file_name) = version.file_name() {
-                let version_name = file_name.to_string_lossy().replace("v", "");
+                let version_name = file_name.to_string_lossy();
                 mapped_versions.push(format!("[cmvm] {} {}", checked, version_name));
             }
         }
@@ -57,7 +63,7 @@ pub fn list_remote_versions() -> Result<String, Box<dyn std::error::Error>> {
     let raw_versions: Vec<Value> = serde_json::from_str(releases.as_str())?;
     for raw_version in raw_versions {
         let version: Version = serde_json::from_value(raw_version)?;
-        let tag_name = version.tag_name.replace("v", "");
+        let tag_name = version.get_tag_name();
 
         // skip release canditate versions
         if tag_name.contains("-rc") {

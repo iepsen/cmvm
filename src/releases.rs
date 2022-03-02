@@ -23,13 +23,11 @@ pub fn build_cache() -> Result<(), Box<dyn std::error::Error>> {
 
 pub fn get_release(version: &String) -> Result<Option<Version>, Box<dyn std::error::Error>> {
     let releases = get_releases()?;
-    let release = releases
-        .iter()
-        .find(|v| &v.tag_name.replace("v", "") == version);
+    let release = releases.iter().find(|v| &v.get_tag_name() == version);
 
     if let Some(release) = release {
         let mut release_found: Version = release.clone();
-        release_found.tag_name = release.tag_name.replace("v", "");
+        release_found.tag_name = release.get_tag_name();
         return Ok(Some(release_found));
     }
     Ok(None)

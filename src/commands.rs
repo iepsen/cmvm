@@ -11,6 +11,7 @@ pub fn install_version(v: &String) -> Result<(), Box<dyn std::error::Error>> {
             use_version(&v)?;
             return Ok(());
         }
+
         if !is_supported_platform() {
             Err("Platform not supported.")?;
         }
