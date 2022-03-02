@@ -6,11 +6,12 @@ pub fn install_version(v: &String) -> Result<(), Box<dyn std::error::Error>> {
     releases::build_cache()?;
 
     if let Some(version) = releases::get_release(&v.trim().to_string())? {
-        if VERSIONS_DIR.join(&version.tag_name).exists() {
+        if VERSIONS_DIR.join(&version.get_tag_name()).exists() {
             println!("[cmvm] Version {} already installed.", v);
             use_version(&v)?;
             return Ok(());
         }
+
         if !is_supported_platform() {
             Err("Platform not supported.")?;
         }
@@ -19,14 +20,15 @@ pub fn install_version(v: &String) -> Result<(), Box<dyn std::error::Error>> {
             Ok(()) => {
                 println!(
                     "[cmvm] Version {} installed successfully.",
-                    &version.tag_name
+                    &version.get_tag_name()
                 );
                 use_version(&v)?;
                 println!("[cmvm] Done.");
             }
             Err(e) => println!(
                 "[cmvm] Error while installing version {}: {}",
-                version.tag_name, e
+                version.get_tag_name(),
+                e
             ),
         }
     } else {
@@ -74,10 +76,11 @@ pub fn list_versions() -> Result<(), Box<dyn std::error::Error>> {
 pub fn use_version(v: &str) -> Result<(), Box<dyn std::error::Error>> {
     if let Some(version) = releases::get_release(&v.trim().to_string())? {
         match versions::use_version(&version) {
-            Ok(_) => println!("[cmvm] Version {} set as default.", version.tag_name),
+            Ok(_) => println!("[cmvm] Version {} set as default.", version.get_tag_name()),
             Err(e) => println!(
                 "[cmvm] Error when trying to set version {}: {}",
-                version.tag_name, e
+                version.get_tag_name(),
+                e
             ),
         }
     } else {

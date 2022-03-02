@@ -18,10 +18,10 @@ pub fn get_cmake_release(version: &Version) -> Result<(), Box<dyn std::error::Er
     let asset = assets.first();
 
     if let Some(asset) = asset {
-        download(&version.tag_name, &asset)?;
-        uncompress(&version.tag_name, &asset)?;
-        copy(&version.tag_name, asset)?;
-        clean(&version.tag_name)?;
+        download(&version.get_tag_name(), &asset)?;
+        uncompress(&version.get_tag_name(), &asset)?;
+        copy(&version.get_tag_name(), asset)?;
+        clean(&version.get_tag_name())?;
     }
 
     Ok(())
