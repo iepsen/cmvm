@@ -1,5 +1,5 @@
 use crate::{
-    constants::VERSIONS_DIR, package, platform::is_supported_platform, releases, versions,
+    constants::VERSIONS_DIR, package, platform::is_supported_platform, releases, versions::Version,
 };
 
 pub fn install_version(v: &String) -> Result<(), Box<dyn std::error::Error>> {
@@ -50,7 +50,7 @@ pub fn list_remote_versions() -> Result<(), Box<dyn std::error::Error>> {
     releases::build_cache()?;
 
     println!("[cmvm] List of available versions to install:");
-    match versions::list_remote_versions() {
+    match Version::list_remote() {
         Ok(versions) => println!("{}", versions),
         Err(_) => println!("[cmvm] There is no versions installed yet."),
     };
@@ -58,7 +58,7 @@ pub fn list_remote_versions() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 pub fn list_versions() -> Result<(), Box<dyn std::error::Error>> {
-    match versions::list_versions() {
+    match Version::list() {
         Ok(versions) => {
             if versions.len() > 0 {
                 println!("[cmvm] Installed versions:");
@@ -74,8 +74,8 @@ pub fn list_versions() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 pub fn use_version(v: &str) -> Result<(), Box<dyn std::error::Error>> {
-    if let Some(version) = releases::get_release(&v.trim().to_string())? {
-        match versions::use_version(&version) {
+    if let Some(mut version) = releases::get_release(&v.trim().to_string())? {
+        match version.r#use() {
             Ok(_) => println!("[cmvm] Version {} set as default.", version.get_tag_name()),
             Err(e) => println!(
                 "[cmvm] Error when trying to set version {}: {}",

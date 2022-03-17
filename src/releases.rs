@@ -119,12 +119,13 @@ fn get_number_of_pages(link_header: &str) -> Result<i32, Box<dyn std::error::Err
 fn get_releases() -> Result<Vec<Version>, Box<dyn std::error::Error>> {
     let releases = cache::open_file(CACHE_DIR.join(RELEASES_FILE_NAME));
     let raw_versions: Vec<Value> = serde_json::from_str(releases.unwrap().as_str())?;
-    let mut versions: Vec<Version> = Vec::new();
-    for raw_version in raw_versions {
-        if raw_version["tag_name"].as_str().unwrap().len() > 0 {
-            let version: Version = serde_json::from_value(raw_version)?;
-            versions.push(version);
-        }
-    }
+
+    let versions = raw_versions
+        .into_iter()
+        .filter(|rv| rv["tag_name"].as_str().unwrap().len() > 0)
+        .map(|v| Version::from_raw_value(v))
+        .flatten()
+        .collect();
+
     Ok(versions)
 }
