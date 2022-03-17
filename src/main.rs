@@ -9,16 +9,18 @@ mod platform;
 mod releases;
 mod versions;
 
+use commands::Commands;
+
 #[derive(Parser)]
 #[clap(version, about = "cmake version manager")]
 #[clap(propagate_version = true)]
 struct Cli {
     #[clap(subcommand)]
-    command: Commands,
+    command: CliCommands,
 }
 
 #[derive(Subcommand)]
-enum Commands {
+enum CliCommands {
     /// Install a cmake version
     Install { version: String },
 
@@ -39,20 +41,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     cache::bootstrap()?;
 
     match Cli::parse().command {
-        Commands::Install { version } => {
-            commands::install_version(&version)?;
+        CliCommands::Install { version } => {
+            Commands::install_version(&version)?;
         }
-        Commands::Uninstall { version } => {
-            commands::uninstall_version(&version)?;
+        CliCommands::Uninstall { version } => {
+            Commands::uninstall_version(&version)?;
         }
-        Commands::Use { version } => {
-            commands::use_version(&version)?;
+        CliCommands::Use { version } => {
+            Commands::use_version(&version)?;
         }
-        Commands::List => {
-            commands::list_versions()?;
+        CliCommands::List => {
+            Commands::list_versions()?;
         }
-        Commands::ListRemote => {
-            commands::list_remote_versions()?;
+        CliCommands::ListRemote => {
+            Commands::list_remote_versions()?;
         }
     }
     Ok(())
