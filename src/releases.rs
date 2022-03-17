@@ -26,9 +26,9 @@ pub fn get_release(version: &String) -> Result<Option<Version>, Box<dyn std::err
     let release = releases.iter().find(|v| &v.get_tag_name() == version);
 
     if let Some(release) = release {
-        let mut found_release: Version = release.clone();
-        found_release.set_tag_name(release.get_tag_name());
-        return Ok(Some(found_release));
+        let mut release_found: Version = release.clone();
+        release_found.tag_name = release.get_tag_name();
+        return Ok(Some(release_found));
     }
     Ok(None)
 }

@@ -21,10 +21,6 @@ impl Version {
         self.tag_name.replace("v", "")
     }
 
-    pub fn set_tag_name(&mut self, tag_name: String) {
-        self.tag_name = tag_name.to_string();
-    }
-
     pub fn from_raw_value(raw_value: Value) -> Result<Version, Box<dyn std::error::Error>> {
         let version: Version = serde_json::from_value(raw_value)?;
         Ok(version)
