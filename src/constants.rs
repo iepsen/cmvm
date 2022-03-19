@@ -20,6 +20,10 @@ lazy_static! {
     ROOT_DIR.join("current")
   };
 
+  #[derive(Debug)]
+  pub static ref SUPPORTED_PLATFORMS: Vec<String> = {
+    vec!["macos".to_string(), "linux".to_string()]
+  };
 }
 
 pub static BASE_URL: &str = "https://api.github.com/repos/Kitware/CMake/releases";

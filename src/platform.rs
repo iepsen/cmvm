@@ -1,3 +1,5 @@
+use crate::constants;
+
 #[derive(Debug)]
 pub struct SupportedDefinition {
     pub content_types: Vec<String>,
@@ -17,11 +19,15 @@ pub struct OperatingSystemVersion {
 }
 
 pub fn is_supported_platform() -> bool {
-    std::env::consts::OS == "macos"
+    constants::SUPPORTED_PLATFORMS.contains(&std::env::consts::OS.to_string())
 }
 
 pub fn supported_definition() -> SupportedDefinition {
-    macos_supported_definition()
+    match std::env::consts::OS {
+        "macos" => macos_supported_definition(),
+        "linux" => linux_supported_definition(),
+        &_ => macos_supported_definition(),
+    }
 }
 
 fn macos_supported_definition() -> SupportedDefinition {
@@ -31,6 +37,14 @@ fn macos_supported_definition() -> SupportedDefinition {
             "-macos10.10-".to_string(),
             "-Darwin-".to_string(),
         ],
+        content_types: vec!["application/gzip".to_string()],
+        major_version_required: 3,
+    }
+}
+
+fn linux_supported_definition() -> SupportedDefinition {
+    SupportedDefinition {
+        name_contains: vec!["-linux-x86_64".to_string()],
         content_types: vec!["application/gzip".to_string()],
         major_version_required: 3,
     }
