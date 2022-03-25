@@ -8,8 +8,10 @@ mod package;
 mod platform;
 mod releases;
 mod versions;
+mod config;
 
 use commands::Commands;
+use crate::config::Config;
 
 #[derive(Parser)]
 #[clap(version, about = "cmake version manager")]
@@ -51,6 +53,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             Commands::use_version(&version)?;
         }
         CliCommands::List => {
+            let config = Config::new();
+            config.print_dirs()?;
             Commands::list_versions()?;
         }
         CliCommands::ListRemote => {
