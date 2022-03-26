@@ -1,6 +1,4 @@
-use crate::{
-    constants::VERSIONS_DIR, package, platform::is_supported_platform, releases, versions::Version,
-};
+use crate::{Config, package, platform::is_supported_platform, releases, versions::Version};
 
 pub struct Commands {}
 
@@ -8,8 +6,11 @@ impl Commands {
     pub fn install_version(v: &String) -> Result<(), Box<dyn std::error::Error>> {
         releases::build_cache()?;
 
+        let config = Config::new();
+        let versions_dir = config.get_versions_dir()?;
+
         if let Some(version) = releases::get_release(&v.trim().to_string())? {
-            if VERSIONS_DIR.join(&version.get_tag_name()).exists() {
+            if versions_dir.join(&version.get_tag_name()).exists() {
                 println!("[cmvm] Version {} already installed.", v);
                 Commands::use_version(&v)?;
                 return Ok(());

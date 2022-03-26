@@ -53,8 +53,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             Commands::use_version(&version)?;
         }
         CliCommands::List => {
-            let config = Config::new();
-            config.print_dirs()?;
             Commands::list_versions()?;
         }
         CliCommands::ListRemote => {

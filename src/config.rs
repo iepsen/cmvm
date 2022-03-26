@@ -14,6 +14,14 @@ impl Config {
         }
     }
 
+    pub fn get_data_dir(&self) ->Result<PathBuf> {
+        if let Some(dirs) = &self.dirs {
+            Ok(PathBuf::from(dirs.data_dir()))
+        } else {
+            Err(anyhow!("Data dir not found"))
+        }
+    }
+
     pub fn get_cache_dir(&self) -> Result<PathBuf> {
         if let Some(dirs) = &self.dirs {
             Ok(dirs.cache_dir().to_path_buf())
@@ -36,12 +44,5 @@ impl Config {
         } else {
             Err(anyhow!("Versions dir not found"))
         }
-    }
-
-    pub fn print_dirs(&self) -> Result<()> {
-        println!("Cache dir: {}", self.get_cache_dir()?.display());
-        println!("Versions dir: {}", self.get_versions_dir()?.display());
-        println!("Current version dir: {}", self.get_current_version_dir()?.display());
-        Ok(())
     }
 }

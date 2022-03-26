@@ -2,8 +2,7 @@ use flate2::read::GzDecoder;
 use std::fs;
 use tar::Archive;
 extern crate fs_extra;
-use crate::constants::{CACHE_DIR, VERSIONS_DIR};
-use crate::http;
+use crate::{Config, http};
 use crate::versions::{Asset, Version};
 use crate::{cache, platform};
 use fs_extra::dir;
@@ -48,17 +47,19 @@ pub fn filter_platform_assets(version: &Version) -> Vec<&Asset> {
 }
 
 fn download(tag_name: &String, asset: &Asset) -> Result<(), Box<dyn std::error::Error>> {
-    let path = CACHE_DIR.join(tag_name);
+    let config = Config::new();
+    let cache_dir = config.get_cache_dir()?;
+    let path = cache_dir.join(tag_name);
 
     if path.exists() {
-        cache::delete(Some(&path))?;
+        cache::delete(&path)?;
     }
 
-    cache::create_dir(Some(&path))?;
+    cache::create_dir(&path)?;
 
     println!("[cmvm] Downloading {}.", asset.browser_download_url);
     let mut response = http::get(&asset.browser_download_url)?;
-    let file_path = &CACHE_DIR.join(tag_name).join(&asset.name);
+    let file_path = &cache_dir.join(tag_name).join(&asset.name);
     let mut file = cache::create_file(file_path)?;
     response.copy_to(&mut file)?;
 
@@ -66,19 +67,24 @@ fn download(tag_name: &String, asset: &Asset) -> Result<(), Box<dyn std::error::
 }
 
 fn uncompress(tag_name: &String, asset: &Asset) -> Result<(), Box<dyn std::error::Error>> {
-    let compressed_file = fs::read(CACHE_DIR.join(tag_name).join(&asset.name))?;
+    let config = Config::new();
+    let cache_dir = config.get_cache_dir()?;
+    let compressed_file = fs::read(cache_dir.join(tag_name).join(&asset.name))?;
 
     let gz = GzDecoder::new(&*compressed_file);
     let mut archive = Archive::new(gz);
 
     println!("[cmvm] Uncompressing {}.", asset.name);
-    archive.unpack(&CACHE_DIR.join(tag_name))?;
+    archive.unpack(&cache_dir.join(tag_name))?;
 
     Ok(())
 }
 
 fn copy(tag_name: &String, asset: &Asset) -> Result<(), Box<dyn std::error::Error>> {
-    let base_path = &CACHE_DIR
+    let config = Config::new();
+    let cache_dir = config.get_cache_dir()?;
+    let versions_dir = config.get_versions_dir()?;
+    let base_path = &cache_dir
         .join(tag_name)
         .join(asset.name.replace(".tar.gz", ""));
 
@@ -100,12 +106,12 @@ fn copy(tag_name: &String, asset: &Asset) -> Result<(), Box<dyn std::error::Erro
         );
     }
 
-    if VERSIONS_DIR.join(tag_name).exists() {
-        cache::delete(Some(&VERSIONS_DIR.join(tag_name)))?;
+    if versions_dir.join(tag_name).exists() {
+        cache::delete(&versions_dir.join(tag_name))?;
     }
 
-    cache::create_dir(Some(&VERSIONS_DIR.join(tag_name)))?;
-    let destination_dir = VERSIONS_DIR.join(tag_name);
+    cache::create_dir(&versions_dir.join(tag_name))?;
+    let destination_dir = versions_dir.join(tag_name);
 
     fs_extra::copy_items(&from_paths, destination_dir, &options)?;
     println!("[cmvm] Setting up {}.", tag_name);
@@ -114,7 +120,9 @@ fn copy(tag_name: &String, asset: &Asset) -> Result<(), Box<dyn std::error::Erro
 }
 
 fn clean(tag_name: &String) -> Result<(), Box<dyn std::error::Error>> {
-    cache::delete(Some(&CACHE_DIR.join(tag_name)))?;
+    let config = Config::new();
+    let cache_dir = config.get_cache_dir()?;
+    cache::delete(&cache_dir.join(tag_name))?;
     println!("[cmvm] Cleaning cache.");
     Ok(())
 }

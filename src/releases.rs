@@ -1,12 +1,14 @@
-use crate::cache;
-use crate::constants::{BASE_URL, CACHE_DIR, CURRENT_VERSION, RELEASES_FILE_NAME, VERSIONS_DIR};
+use crate::{cache, Config};
+use crate::constants::{BASE_URL, RELEASES_FILE_NAME};
 use crate::http;
 use crate::versions::Version;
 use serde_json::Value;
 use std::{fs, io::Write, thread};
 
 pub fn build_cache() -> Result<(), Box<dyn std::error::Error>> {
-    if !CACHE_DIR.join(RELEASES_FILE_NAME).exists() {
+    let config = Config::new();
+    let cache_dir = config.get_cache_dir()?;
+    if !cache_dir.join(RELEASES_FILE_NAME).exists() {
         println!("[cmvm] Fetching versions at first time...");
         if cache_releases(None).is_err() {
             println!("[cmvm] Failed to fetch remote versions");
@@ -34,18 +36,23 @@ pub fn get_release(version: &String) -> Result<Option<Version>, Box<dyn std::err
 }
 
 pub fn delete_cache_release(version: &String) -> Result<(), Box<dyn std::error::Error>> {
+    let config = Config::new();
+    let versions_dir = config.get_versions_dir()?;
+    let current_version_dir = config.get_current_version_dir()?;
     if let Some(release) = get_release(version)? {
-        let version_path = VERSIONS_DIR.join(release.get_tag_name());
-        if CURRENT_VERSION.read_link()? == version_path {
-            cache::delete(Some(&CURRENT_VERSION))?;
+        let version_path = versions_dir.join(release.get_tag_name());
+        if current_version_dir.read_link()? == version_path {
+            cache::delete(&current_version_dir)?;
         }
-        cache::delete(Some(version_path.as_path()))?;
+        cache::delete(&version_path.as_path())?;
     }
 
     Ok(())
 }
 
 fn cache_releases(page: Option<i32>) -> Result<(), Box<dyn std::error::Error>> {
+    let config = Config::new();
+    let cache_dir = config.get_cache_dir()?;
     let current_page = page.unwrap_or(1);
     let first_page = current_page == 1;
     let mut response = http::get(format!("{}?page={}", BASE_URL, current_page).as_str())?;
@@ -54,10 +61,10 @@ fn cache_releases(page: Option<i32>) -> Result<(), Box<dyn std::error::Error>> {
         Err("[cmvm] Something went wrong")?;
     }
 
-    let current_page_file = CACHE_DIR.join(format!("{}.json", current_page));
+    let current_page_file = cache_dir.join(format!("{}.json", current_page));
 
     if current_page_file.exists() {
-        cache::delete(Some(&current_page_file))?;
+        cache::delete(&current_page_file)?;
     }
 
     let mut file = cache::create_file(current_page_file.as_path())?;
@@ -76,14 +83,16 @@ fn cache_releases(page: Option<i32>) -> Result<(), Box<dyn std::error::Error>> {
 }
 
 fn merge(pages: i32) -> Result<(), Box<dyn std::error::Error>> {
+    let config = Config::new();
+    let cache_dir = config.get_cache_dir()?;
     let mut releases: Vec<Value> = Vec::new();
 
-    if CACHE_DIR.join(RELEASES_FILE_NAME).exists() {
-        cache::delete(Some(&CACHE_DIR.join(RELEASES_FILE_NAME)))?;
+    if cache_dir.join(RELEASES_FILE_NAME).exists() {
+        cache::delete(&cache_dir.join(RELEASES_FILE_NAME))?;
     }
 
     for page in 1..=pages {
-        let page_file = CACHE_DIR.join(format!("{}.json", page));
+        let page_file = cache_dir.join(format!("{}.json", page));
 
         if page_file.exists() {
             let file_contents = fs::read_to_string(&page_file)?;
@@ -99,7 +108,7 @@ fn merge(pages: i32) -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    let mut cache_file = cache::create_file(&CACHE_DIR.join(RELEASES_FILE_NAME))?;
+    let mut cache_file = cache::create_file(&cache_dir.join(RELEASES_FILE_NAME))?;
     let cache_json = serde_json::to_string(&releases)?;
     cache_file.write(cache_json.as_bytes())?;
 
@@ -117,7 +126,10 @@ fn get_number_of_pages(link_header: &str) -> Result<i32, Box<dyn std::error::Err
 }
 
 fn get_releases() -> Result<Vec<Version>, Box<dyn std::error::Error>> {
-    let releases = cache::open_file(CACHE_DIR.join(RELEASES_FILE_NAME));
+    let config = Config::new();
+    let cache_dir = config.get_cache_dir()?;
+
+    let releases = cache::open_file(cache_dir.join(RELEASES_FILE_NAME));
     let raw_versions: Vec<Value> = serde_json::from_str(releases.unwrap().as_str())?;
 
     let versions = raw_versions

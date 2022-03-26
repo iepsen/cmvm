@@ -1,5 +1,5 @@
-use crate::constants::{CACHE_DIR, CURRENT_VERSION, RELEASES_FILE_NAME, VERSIONS_DIR};
-use crate::{cache, package, platform};
+use crate::constants::RELEASES_FILE_NAME;
+use crate::{cache, Config, package, platform};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -27,22 +27,29 @@ impl Version {
     }
 
     pub fn r#use(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        if CURRENT_VERSION.exists() {
-            cache::delete(Some(&CURRENT_VERSION))?;
+        let config = Config::new();
+        let current_version_dir = config.get_current_version_dir()?;
+        let versions_dir = config.get_versions_dir()?;
+        if current_version_dir.exists() {
+            cache::delete(&current_version_dir)?;
         }
 
         std::os::unix::fs::symlink(
-            VERSIONS_DIR.join(self.get_tag_name()),
-            CURRENT_VERSION.as_path(),
+            versions_dir.join(self.get_tag_name()),
+            current_version_dir.as_path(),
         )?;
 
         Ok(())
     }
 
     pub fn list() -> Result<String, Box<dyn std::error::Error>> {
-        let versions = cache::ls(Some(&VERSIONS_DIR))?;
+        let config = Config::new();
+        let current_version_dir = config.get_current_version_dir()?;
+        let versions_dir = config.get_versions_dir()?;
+
+        let versions = cache::ls(&versions_dir)?;
         let mut mapped_versions: Vec<String> = Vec::new();
-        let current = CURRENT_VERSION.read_link().unwrap_or_default();
+        let current = current_version_dir.read_link().unwrap_or_default();
 
         for version in versions {
             if version.is_dir() {
@@ -61,9 +68,11 @@ impl Version {
     }
 
     pub fn list_remote() -> Result<String, Box<dyn std::error::Error>> {
+        let config = Config::new();
+        let cache_dir = config.get_cache_dir()?;
         let mut versions: Vec<String> = Vec::new();
 
-        let releases = cache::open_file(CACHE_DIR.join(RELEASES_FILE_NAME))?;
+        let releases = cache::open_file(cache_dir.join(RELEASES_FILE_NAME))?;
         let raw_versions: Vec<Value> = serde_json::from_str(releases.as_str())?;
         for raw_version in raw_versions {
             let version = Version::from_raw_value(raw_version)?;
