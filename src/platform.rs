@@ -44,7 +44,7 @@ fn macos_supported_definition() -> SupportedDefinition {
 
 fn linux_supported_definition() -> SupportedDefinition {
     SupportedDefinition {
-        name_contains: vec!["-linux-x86_64".to_string()],
+        name_contains: vec!["-linux-x86_64".to_string(), "-Linux-x86_64".to_string()],
         content_types: vec!["application/gzip".to_string()],
         major_version_required: 3,
     }
