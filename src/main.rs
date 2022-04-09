@@ -37,6 +37,9 @@ enum CliCommands {
 
     /// List available cmake versions to install
     ListRemote,
+
+    /// Show how to put cmake current version on PATH env variable
+    Shell,
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -57,6 +60,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         CliCommands::ListRemote => {
             Commands::list_remote_versions()?;
+        }
+        CliCommands::Shell => {
+            let config = Config::new();
+            let current_version_dir = config.get_current_version_dir()?;
+                
+            println!("[cmvm] {} {}\n",
+                "In order to get cmvm working, you fist need to add cmvm",
+                "current version into your shell profile:"
+            );
+            println!("export PATH=\"{}/bin:$PATH\"\n", current_version_dir.to_string_lossy());
         }
     }
     Ok(())
