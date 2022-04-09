@@ -64,12 +64,31 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         CliCommands::Shell => {
             let config = Config::new();
             let current_version_dir = config.get_current_version_dir()?;
+            let home_dir = config.get_home_dir()?;
                 
-            println!("[cmvm] {} {}\n",
-                "In order to get cmvm working, you fist need to add cmvm",
-                "current version into your shell profile:"
+            println!(
+                "[cmvm] {} {}\n",
+                "In order to get cmvm working, you fist need to append cmake",
+                "current version binary to the $PATH env variable."
             );
+            
             println!("export PATH=\"{}/bin:$PATH\"\n", current_version_dir.to_string_lossy());
+
+            println!(
+                "[cmvm] {} {}/.bashrc or {}/.bash_profile",
+                "For bash, the profile fie is",
+                home_dir.to_string_lossy(), home_dir.to_string_lossy()
+            );
+
+            println!(
+                "[cmvm] {} {}/.zshrc\n",
+                "For zsh, you the profile is",
+                home_dir.to_string_lossy()
+            );
+
+            println!("[cmvm] If you are unsure on what shell you use, you can type the following:\n");
+            
+            println!("echo $SHELL\n");
         }
     }
     Ok(())

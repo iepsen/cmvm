@@ -4,11 +4,17 @@ cmvm is simple tool that manages multiple CMake versions.
 
 ## How to install
 
-Tap the CMake Version Manager [Homebrew](https://brew.sh/) formulae and install it:
+As cmvm is built in rust, the only way to install cmvm is to get it from cargo for now. Follow [this instruction](https://doc.rust-lang.org/cargo/getting-started/installation.html) to get it.
 
+
+With cargo in place you can install cmvm by running the following:
 ```
-brew tap iepsen/cmvm
-brew install cmvm
+cargo install cmvm
+```
+
+The next step is to add cmake current version on your path. Use the following command to get instructions:
+```
+cmvm shell
 ```
 
 ## Usage
@@ -38,5 +44,4 @@ cmvm help
 ```
 
 ## Support
-
-Only macOS is supported for now.
+It's expected to cmvm to work on macOS and Linux platforms.
