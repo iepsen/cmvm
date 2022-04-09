@@ -25,6 +25,12 @@ Install a CMake version:
 cmvm install 3.20.1
 ```
 
+List available cmake versions to install:
+
+```
+cmvm list-remote
+```
+
 List cmake versions managed by cmvm installed:
 
 ```
@@ -43,5 +49,5 @@ List all commands available and usage examples:
 cmvm help
 ```
 
-## Support
-It's expected to cmvm to work on macOS and Linux platforms.
+## Supported platforms
+It's expected to cmvm to work on macOS and Linux platforms. Found a bug? Please, file a ticket or open a PR to fix it.
