@@ -3,15 +3,18 @@ use crate::{cache, Config, package, platform};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, Ord, PartialEq, PartialOrd)]
 pub struct Asset {
     pub name: String,
     pub content_type: String,
     pub browser_download_url: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, Ord, PartialEq, PartialOrd)]
 pub struct Version {
+    pub major: Option<i32>,
+    pub minor: Option<i32>,
+    pub patch: Option<i32>,
     pub tag_name: String,
     pub assets: Vec<Asset>,
 }
@@ -22,7 +25,19 @@ impl Version {
     }
 
     pub fn from_raw_value(raw_value: Value) -> Result<Version, Box<dyn std::error::Error>> {
-        let version: Version = serde_json::from_value(raw_value)?;
+        let mut version: Version = serde_json::from_value(raw_value)?;
+        let tag_name = version.get_tag_name();
+        let mut split_version = tag_name.splitn(3, ".");
+        let (major, minor, patch) = (
+            split_version.next().unwrap().parse::<i32>().unwrap(),
+            split_version.next().unwrap().parse::<i32>().unwrap(),
+            split_version.next().unwrap().parse::<i32>().unwrap_or(999),
+        );
+
+        version.major = Some(major);
+        version.minor = Some(minor);
+        version.patch = Some(patch);
+        
         Ok(version)
     }
 
@@ -70,7 +85,7 @@ impl Version {
     pub fn list_remote() -> Result<String, Box<dyn std::error::Error>> {
         let config = Config::new();
         let cache_dir = config.get_cache_dir()?;
-        let mut versions: Vec<String> = Vec::new();
+        let mut versions: Vec<Version> = Vec::new();
 
         let releases = cache::open_file(cache_dir.join(RELEASES_FILE_NAME))?;
         let raw_versions: Vec<Value> = serde_json::from_str(releases.as_str())?;
@@ -84,39 +99,84 @@ impl Version {
             }
 
             let supported_definition = platform::supported_definition();
-            let major_version = &version.get_major_version();
 
             // skip releases that doesn't match the required major version
-            if major_version < &supported_definition.major_version_required {
+            if &version.major.unwrap() < &supported_definition.major_version_required {
                 continue;
             }
 
             let assets: Vec<&Asset> = package::filter_platform_assets(&version);
 
             if assets.len() > 0 {
-                versions.push(format!("[cmvm] {}", tag_name));
+                versions.push(version);
             }
         }
-        Ok(versions.join("\n"))
-    }
 
-    pub fn get_major_version(&self) -> i32 {
-        let tag_name = &mut self.get_tag_name();
-        let mut split_version = tag_name.split(".");
-        split_version.next().unwrap().parse::<i32>().unwrap()
+        versions.sort();
+
+        let version_tags: Vec<String> = versions
+            .into_iter()
+            .map(|v| format!("[cmvm] {}", v.get_tag_name()))
+            .collect();
+
+        Ok(version_tags.join("\n"))
     }
 }
 
 #[cfg(test)]
 mod test {
+    use std::vec;
+
     use super::*;
+    use pretty_assertions::assert_eq;
+    use serde_json::json;
     #[test]
     fn test_version_tag_omits_v_key_word() {
         let version = Version {
-            tag_name: "v1.10".to_string(),
+            major: Some(1),
+            minor: Some(10),
+            patch: Some(0),
+            tag_name: "v1.10.0".to_string(),
             assets: vec![],
         };
 
-        assert_eq!(version.get_tag_name(), "1.10");
+        assert_eq!(version.get_tag_name(), "1.10.0");
+    }
+
+    #[test]
+    fn test_major_version_extracted() {
+        let version = Version {
+            major: Some(3),
+            minor: Some(20),
+            patch: Some(10),
+            tag_name: "v3.20.10".to_string(),
+            assets: vec![],
+        };
+
+        assert_eq!(version.major.unwrap(), 3);
+    }
+
+    #[test]
+    fn test_raw_value_converted_to_version_struct() {
+        let raw_asset = json!({
+            "name": "cmake-3.22.3-linux-aarch64.tar.gz",
+            "browser_download_url": "http://fake_browser_download_url",
+            "content_type": "application/gzip",
+        });
+        let raw_version = json!({
+            "tag_name": "v3.22.3", 
+            "assets": [raw_asset]
+        });
+
+        let version_from_raw = Version::from_raw_value(raw_version);
+        let version = version_from_raw.unwrap();
+        let assets = version.assets.first();
+
+        assert_eq!(version.tag_name, "v3.22.3");
+        assert_eq!(version.assets.len(), 1);
+        assert_eq!(assets.is_some(), true);
+        assert_eq!(assets.unwrap().name, "cmake-3.22.3-linux-aarch64.tar.gz");
+        assert_eq!(assets.unwrap().browser_download_url, "http://fake_browser_download_url");
+        assert_eq!(assets.unwrap().content_type, "application/gzip");
     }
 }
