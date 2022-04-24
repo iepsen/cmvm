@@ -15,6 +15,7 @@ pub struct Version {
     pub major: Option<i32>,
     pub minor: Option<i32>,
     pub patch: Option<i32>,
+    pub rc: Option<String>,
     pub tag_name: String,
     pub assets: Vec<Asset>,
 }
@@ -26,17 +27,22 @@ impl Version {
 
     pub fn from_raw_value(raw_value: Value) -> Result<Version, Box<dyn std::error::Error>> {
         let mut version: Version = serde_json::from_value(raw_value)?;
-        let tag_name = version.get_tag_name();
-        let mut split_version = tag_name.splitn(3, ".");
-        let (major, minor, patch) = (
+
+        // normalizing "-rc" prefixed releases: 3.14.0-rc3 -> 3.14.0.rc3
+        let tag_name = version.get_tag_name().replace("-", ".");
+        let mut split_version = tag_name.split(".");
+
+        let (major, minor, patch, rc) = (
             split_version.next().unwrap().parse::<i32>().unwrap(),
             split_version.next().unwrap().parse::<i32>().unwrap(),
-            split_version.next().unwrap().parse::<i32>().unwrap_or(999),
+            split_version.next().unwrap().parse::<i32>().unwrap(),
+            split_version.next().unwrap_or(&"").parse::<String>().unwrap(),
         );
 
         version.major = Some(major);
         version.minor = Some(minor);
         version.patch = Some(patch);
+        version.rc = Some(rc.to_string());
         
         Ok(version)
     }
@@ -91,10 +97,9 @@ impl Version {
         let raw_versions: Vec<Value> = serde_json::from_str(releases.as_str())?;
         for raw_version in raw_versions {
             let version = Version::from_raw_value(raw_version)?;
-            let tag_name = version.get_tag_name();
 
             // skip release canditate versions
-            if tag_name.contains("-rc") {
+            if version.is_rc() {
                 continue;
             }
 
@@ -121,6 +126,10 @@ impl Version {
 
         Ok(version_tags.join("\n"))
     }
+
+    fn is_rc(&self) -> bool {
+        self.tag_name.contains("-rc")
+    }
 }
 
 #[cfg(test)]
@@ -136,6 +145,7 @@ mod test {
             major: Some(1),
             minor: Some(10),
             patch: Some(0),
+            rc: None,
             tag_name: "v1.10.0".to_string(),
             assets: vec![],
         };
@@ -149,6 +159,7 @@ mod test {
             major: Some(3),
             minor: Some(20),
             patch: Some(10),
+            rc: None,
             tag_name: "v3.20.10".to_string(),
             assets: vec![],
         };
@@ -157,7 +168,7 @@ mod test {
     }
 
     #[test]
-    fn test_raw_value_converted_to_version_struct() {
+    fn test_raw_version_converted_to_version_struct() {
         let raw_asset = json!({
             "name": "cmake-3.22.3-linux-aarch64.tar.gz",
             "browser_download_url": "http://fake_browser_download_url",
@@ -178,5 +189,28 @@ mod test {
         assert_eq!(assets.unwrap().name, "cmake-3.22.3-linux-aarch64.tar.gz");
         assert_eq!(assets.unwrap().browser_download_url, "http://fake_browser_download_url");
         assert_eq!(assets.unwrap().content_type, "application/gzip");
+    }
+
+    #[test]
+    fn test_raw_version_rc_converted_to_version_struct() {
+        let raw_asset = json!({
+            "name": "cmake-3.22.3-linux-aarch64.tar.gz",
+            "browser_download_url": "http://fake_browser_download_url",
+            "content_type": "application/gzip",
+        });
+        let raw_version = json!({
+            "tag_name": "v3.22.3-rc5", 
+            "assets": [raw_asset]
+        });
+
+        let version_from_raw = Version::from_raw_value(raw_version);
+        let version = version_from_raw.unwrap();
+
+        assert_eq!(version.tag_name, "v3.22.3-rc5");
+        assert_eq!(version.major, Some(3));
+        assert_eq!(version.minor, Some(22));
+        assert_eq!(version.patch, Some(3));
+        assert_eq!(version.rc, Some("rc5".to_string()));
+        assert_eq!(version.is_rc(), true);
     }
 }

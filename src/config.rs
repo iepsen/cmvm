@@ -16,7 +16,7 @@ impl Config {
         }
     }
 
-    pub fn get_data_dir(&self) ->Result<PathBuf> {
+    pub fn get_data_dir(&self) -> Result<PathBuf> {
         if let Some(dirs) = &self.dirs {
             Ok(PathBuf::from(dirs.data_dir()))
         } else {
