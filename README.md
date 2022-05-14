@@ -1,5 +1,7 @@
 # CMake Version Manager
 
+[![ci](https://github.com/iepsen/cmvm/actions/workflows/rust.yml/badge.svg)](https://github.com/iepsen/cmvm/actions/workflows/rust.yml) ![Crates.io](https://img.shields.io/crates/v/cmvm)
+
 cmvm is simple tool that manages multiple CMake versions.
 
 ## How to install
