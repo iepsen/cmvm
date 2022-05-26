@@ -2,7 +2,7 @@
 
 [![ci](https://github.com/iepsen/cmvm/actions/workflows/ci.yml/badge.svg)](https://github.com/iepsen/cmvm/actions/workflows/ci.yml) ![Crates.io](https://img.shields.io/crates/v/cmvm)
 
-cmvm is simple tool that manages multiple CMake versions.
+cmvm is simple tool that manages multiple CMake versions for macOS and Linux platforms.
 
 ## How to install
 
@@ -20,7 +20,7 @@ cargo install cmvm
 ### Releases
 Binaries are [available for download](https://github.com/iepsen/cmvm/releases) on both macOS and Linux platforms since [v0.3.3](https://github.com/iepsen/cmvm/releases/tag/v0.3.3). 
 
-## Path instructions
+## Adding cmake to the path
 Once you have cmvm installed, you need to add CMake current version on your path. Use the following command to get instructions:
 ```
 cmvm shell
@@ -58,5 +58,8 @@ List all commands available and usage examples:
 cmvm help
 ```
 
-## Supported platforms
-It's expected to cmvm to work on macOS and Linux platforms. Found a bug? Please, file a ticket or open a PR to fix it.
+## How to contribute
+You can contribute on this project by
+- [Opening  an issue](https://github.com/iepsen/cmvm/issues) if you find a bug
+- Being proactive and open a pull request to fix an issue or suggest improvement
+- Starting a [disucssion](https://github.com/iepsen/cmvm/discussions) if you have a specific topic to discuss
