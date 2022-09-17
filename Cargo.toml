@@ -25,4 +25,4 @@ fs_extra = "1.2.0"
 lazy_static = "1.4.0"
 
 [dev-dependencies]
-pretty_assertions = "1"
+pretty_assertions = "1.2.1"
