@@ -12,14 +12,14 @@ categories = ["command-line-interface", "command-line-utilities", "caching"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-anyhow = "1.0.56"
-clap = { version = "3.1.0", features = ["derive"] }
-directories = "1.0.2"
-parse_link_header = "0.3"
-reqwest = { version = "0.11.9", features = ["blocking", "json"] }
+anyhow = "1.0.58"
+clap = { version = "3.2.12", features = ["derive"] }
+directories = "4.0.1"
+parse_link_header = "0.3.2"
+reqwest = { version = "0.11.11", features = ["blocking", "json"] }
 serde = { version = "1.0", features = ["derive"] }
-serde_json = "1"
-flate2 = "1.0.22"
+serde_json = "1.0.82"
+flate2 = "1.0.24"
 tar = "0.4.38"
 fs_extra = "1.2.0"
 lazy_static = "1.4.0"
