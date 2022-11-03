@@ -12,7 +12,7 @@ brew tap iepsen/cmvm
 brew install cmvm
 ```
 
-### Cargo (Rust developers)
+### Cargo
 ```
 cargo install cmvm
 ```
@@ -59,7 +59,4 @@ cmvm help
 ```
 
 ## How to contribute
-You can contribute on this project by
-- [Opening  an issue](https://github.com/iepsen/cmvm/issues) if you find a bug
-- Being proactive and open a pull request to fix an issue or suggest improvement
-- Starting a [disucssion](https://github.com/iepsen/cmvm/discussions) if you have a specific topic to discuss
+Feel free to [open an issue](https://github.com/iepsen/cmvm/issues) or pull request. Also, [disucssions](https://github.com/iepsen/cmvm/discussions) are enabled for general questions.
