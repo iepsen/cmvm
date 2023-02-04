@@ -24,13 +24,13 @@ struct Cli {
 #[derive(Subcommand)]
 enum CliCommands {
     /// Install a cmake version
-    Install { version: String },
+    Install { v: String },
 
     /// Uninstall a cmake version
-    Uninstall { version: String },
+    Uninstall { v: String },
 
     /// Use a cmake version
-    Use { version: String },
+    Use { v: String },
 
     /// List all cmake versions installed
     List,
@@ -46,14 +46,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     cache::bootstrap()?;
 
     match Cli::parse().command {
-        CliCommands::Install { version } => {
-            Commands::install_version(&version)?;
+        CliCommands::Install { v } => {
+            Commands::install_version(&v)?;
         }
-        CliCommands::Uninstall { version } => {
-            Commands::uninstall_version(&version)?;
+        CliCommands::Uninstall { v } => {
+            Commands::uninstall_version(&v)?;
         }
-        CliCommands::Use { version } => {
-            Commands::use_version(&version)?;
+        CliCommands::Use { v } => {
+            Commands::use_version(&v)?;
         }
         CliCommands::List => {
             Commands::list_versions()?;
