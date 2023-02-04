@@ -1,18 +1,16 @@
-use std::path::PathBuf;
 use anyhow::{anyhow, Result};
-use directories::{ProjectDirs, BaseDirs};
+use directories::ProjectDirs;
+use std::path::PathBuf;
 
 #[derive(Debug)]
 pub struct Config {
-    base_dirs: Option<BaseDirs>,
     dirs: Option<ProjectDirs>,
 }
 
 impl Config {
     pub fn new() -> Self {
         Self {
-            base_dirs: BaseDirs::new(),
-            dirs: ProjectDirs::from("com", "iepsen", "cmvm")
+            dirs: ProjectDirs::from("com", "iepsen", "cmvm"),
         }
     }
 
@@ -43,14 +41,6 @@ impl Config {
     pub fn get_versions_dir(&self) -> Result<PathBuf> {
         if let Some(dirs) = &self.dirs {
             Ok(dirs.data_dir().join("versions"))
-        } else {
-            Err(anyhow!("Versions dir not found"))
-        }
-    }
-
-    pub fn get_home_dir(&self) -> Result<PathBuf> {
-        if let Some(dirs) = &self.base_dirs {
-            Ok(dirs.home_dir().to_path_buf())
         } else {
             Err(anyhow!("Versions dir not found"))
         }
