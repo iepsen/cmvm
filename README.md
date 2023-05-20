@@ -2,7 +2,7 @@
 
 [![ci](https://github.com/iepsen/cmvm/actions/workflows/ci.yml/badge.svg)](https://github.com/iepsen/cmvm/actions/workflows/ci.yml) ![Crates.io](https://img.shields.io/crates/v/cmvm)
 
-cmvm is simple tool that manages multiple CMake versions for macOS and Linux platforms.
+cmvm is a simple tool that manages multiple CMake versions for macOS and Linux platforms.
 
 ## How to install
 
