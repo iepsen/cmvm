@@ -66,13 +66,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let current_version_dir = config.get_current_version_dir()?;
 
             println!(
-                "[cmvm] {} {} {} {}\n\n  {} {}",
+                "[cmvm] {} {} {} {}\n\n {}",
                 "When `cmvm use <version>` is invoked, it changes the `current`",
                 "symbolic link to the right cmake binary path. As cmvm doesn't",
                 "manage the `current` path in the system, it requires to",
                 "manually add it to the $PATH:",
-                "export PATH=\"{}/bin:$PATH\"",
-                current_version_dir.to_string_lossy()
+                format!(
+                    "export PATH=\"{}/bin:$PATH\"",
+                    &current_version_dir.to_string_lossy()
+                )
             );
         }
     }
