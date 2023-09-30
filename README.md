@@ -59,4 +59,4 @@ cmvm help
 ```
 
 ## How to contribute
-Feel free to [open an issue](https://github.com/iepsen/cmvm/issues) or pull request. Also, [disucssions](https://github.com/iepsen/cmvm/discussions) are enabled for general questions.
+Feel free to [open an issue](https://github.com/iepsen/cmvm/issues) or pull request.
