@@ -1,7 +1,7 @@
+use crate::Config;
 use std::fs;
 use std::io::Read;
 use std::path::{Path, PathBuf};
-use crate::Config;
 
 pub fn bootstrap() -> Result<(), Box<dyn std::error::Error>> {
     let config = Config::new();

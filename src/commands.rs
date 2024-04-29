@@ -1,4 +1,4 @@
-use crate::{Config, package, platform::is_supported_platform, releases, versions::Version};
+use crate::{package, platform::is_supported_platform, releases, versions::Version, Config};
 
 pub struct Commands {}
 
