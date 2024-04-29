@@ -1,7 +1,7 @@
-use crate::{cache, Config};
 use crate::constants::{BASE_URL, RELEASES_FILE_NAME};
 use crate::http;
 use crate::versions::Version;
+use crate::{cache, Config};
 use serde_json::Value;
 use std::{fs, io::Write, thread};
 

@@ -2,9 +2,9 @@ use flate2::read::GzDecoder;
 use std::fs;
 use tar::Archive;
 extern crate fs_extra;
-use crate::{Config, http};
 use crate::versions::{Asset, Version};
 use crate::{cache, platform};
+use crate::{http, Config};
 use fs_extra::dir;
 
 pub fn get_cmake_release(version: &Version) -> Result<(), Box<dyn std::error::Error>> {

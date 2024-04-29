@@ -1,5 +1,5 @@
 use crate::constants::RELEASES_FILE_NAME;
-use crate::{cache, Config, package, platform};
+use crate::{cache, package, platform, Config};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -36,14 +36,18 @@ impl Version {
             split_version.next().unwrap().parse::<i32>().unwrap(),
             split_version.next().unwrap().parse::<i32>().unwrap(),
             split_version.next().unwrap().parse::<i32>().unwrap(),
-            split_version.next().unwrap_or(&"").parse::<String>().unwrap(),
+            split_version
+                .next()
+                .unwrap_or(&"")
+                .parse::<String>()
+                .unwrap(),
         );
 
         version.major = Some(major);
         version.minor = Some(minor);
         version.patch = Some(patch);
         version.rc = Some(rc.to_string());
-        
+
         Ok(version)
     }
 
@@ -175,7 +179,7 @@ mod test {
             "content_type": "application/gzip",
         });
         let raw_version = json!({
-            "tag_name": "v3.22.3", 
+            "tag_name": "v3.22.3",
             "assets": [raw_asset]
         });
 
@@ -187,7 +191,10 @@ mod test {
         assert_eq!(version.assets.len(), 1);
         assert_eq!(assets.is_some(), true);
         assert_eq!(assets.unwrap().name, "cmake-3.22.3-linux-aarch64.tar.gz");
-        assert_eq!(assets.unwrap().browser_download_url, "http://fake_browser_download_url");
+        assert_eq!(
+            assets.unwrap().browser_download_url,
+            "http://fake_browser_download_url"
+        );
         assert_eq!(assets.unwrap().content_type, "application/gzip");
     }
 
@@ -199,7 +206,7 @@ mod test {
             "content_type": "application/gzip",
         });
         let raw_version = json!({
-            "tag_name": "v3.22.3-rc5", 
+            "tag_name": "v3.22.3-rc5",
             "assets": [raw_asset]
         });
 
