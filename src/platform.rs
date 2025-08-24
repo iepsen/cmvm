@@ -6,17 +6,7 @@ pub struct SupportedDefinition {
     pub name_contains: Vec<String>,
     pub major_version_required: i32,
 }
-#[derive(Debug)]
-pub struct PlatformInfo {
-    pub version: OperatingSystemVersion,
-    pub name: String,
-}
-#[derive(Debug)]
-pub struct OperatingSystemVersion {
-    pub major: i32,
-    pub minor: i32,
-    pub patch: i32,
-}
+
 
 pub fn is_supported_platform() -> bool {
     constants::SUPPORTED_PLATFORMS.contains(&std::env::consts::OS.to_string())
