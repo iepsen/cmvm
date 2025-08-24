@@ -4,9 +4,10 @@ use crate::versions::Version;
 use crate::{cache, Config};
 use serde_json::Value;
 use std::{fs, io::Write, thread};
+use crate::config::ConfigImp;
 
 pub fn build_cache() -> Result<(), Box<dyn std::error::Error>> {
-    let config = Config::new();
+    let config = ConfigImp::new();
     let cache_dir = config.get_cache_dir()?;
     if !cache_dir.join(RELEASES_FILE_NAME).exists() {
         println!("[cmvm] Fetching versions at first time...");
@@ -24,7 +25,7 @@ pub fn build_cache() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 pub fn get_release(version: &String) -> Result<Option<Version>, Box<dyn std::error::Error>> {
-    let releases = get_releases()?;
+    let releases = get_releases(ConfigImp::new())?;
     let release = releases.iter().find(|v| &v.get_tag_name() == version);
 
     if let Some(release) = release {
@@ -36,7 +37,7 @@ pub fn get_release(version: &String) -> Result<Option<Version>, Box<dyn std::err
 }
 
 pub fn delete_cache_release(version: &String) -> Result<(), Box<dyn std::error::Error>> {
-    let config = Config::new();
+    let config = ConfigImp::new();
     let versions_dir = config.get_versions_dir()?;
     let current_version_dir = config.get_current_version_dir()?;
     if let Some(release) = get_release(version)? {
@@ -51,7 +52,7 @@ pub fn delete_cache_release(version: &String) -> Result<(), Box<dyn std::error::
 }
 
 fn cache_releases(page: Option<i32>) -> Result<(), Box<dyn std::error::Error>> {
-    let config = Config::new();
+    let config = ConfigImp::new();
     let cache_dir = config.get_cache_dir()?;
     let current_page = page.unwrap_or(1);
     let first_page = current_page == 1;
@@ -83,7 +84,7 @@ fn cache_releases(page: Option<i32>) -> Result<(), Box<dyn std::error::Error>> {
 }
 
 fn merge(pages: i32) -> Result<(), Box<dyn std::error::Error>> {
-    let config = Config::new();
+    let config = ConfigImp::new();
     let cache_dir = config.get_cache_dir()?;
     let mut releases: Vec<Value> = Vec::new();
 
@@ -125,10 +126,8 @@ fn get_number_of_pages(link_header: &str) -> Result<i32, Box<dyn std::error::Err
     Ok(last_page)
 }
 
-fn get_releases() -> Result<Vec<Version>, Box<dyn std::error::Error>> {
-    let config = Config::new();
+fn get_releases(config: impl Config) -> Result<Vec<Version>, Box<dyn std::error::Error>> {
     let cache_dir = config.get_cache_dir()?;
-
     let releases = cache::open_file(cache_dir.join(RELEASES_FILE_NAME));
     let raw_versions: Vec<Value> = serde_json::from_str(releases.unwrap().as_str())?;
 

@@ -1,4 +1,5 @@
 use crate::{package, platform::is_supported_platform, releases, versions::Version, Config};
+use crate::config::ConfigImp;
 
 pub struct Commands {}
 
@@ -6,7 +7,7 @@ impl Commands {
     pub fn install_version(v: &String) -> Result<(), Box<dyn std::error::Error>> {
         releases::build_cache()?;
 
-        let config = Config::new();
+        let config = ConfigImp::new();
         let versions_dir = config.get_versions_dir()?;
 
         if let Some(version) = releases::get_release(&v.trim().to_string())? {

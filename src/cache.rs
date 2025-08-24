@@ -2,9 +2,10 @@ use crate::Config;
 use std::fs;
 use std::io::Read;
 use std::path::{Path, PathBuf};
+use crate::config::ConfigImp;
 
 pub fn bootstrap() -> Result<(), Box<dyn std::error::Error>> {
-    let config = Config::new();
+    let config = ConfigImp::new();
     let data_dir = config.get_data_dir()?;
     let cache_dir = config.get_cache_dir()?;
     let versions_dir = config.get_versions_dir()?;
@@ -32,7 +33,7 @@ pub fn create_dir(path: &Path) -> Result<(), Box<dyn std::error::Error>> {
 }
 
 pub fn create_file(path: &Path) -> Result<fs::File, Box<dyn std::error::Error>> {
-    let config = Config::new();
+    let config = ConfigImp::new();
     let data_dir = config.get_data_dir()?;
     if data_dir.join(path).exists() {
         delete(&data_dir.join(path))?;

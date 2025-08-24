@@ -2,6 +2,7 @@ use crate::constants::RELEASES_FILE_NAME;
 use crate::{cache, package, platform, Config};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use crate::config::ConfigImp;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, Ord, PartialEq, PartialOrd)]
 pub struct Asset {
@@ -52,7 +53,7 @@ impl Version {
     }
 
     pub fn r#use(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        let config = Config::new();
+        let config = ConfigImp::new();
         let current_version_dir = config.get_current_version_dir()?;
         let versions_dir = config.get_versions_dir()?;
         if current_version_dir.exists() {
@@ -68,7 +69,7 @@ impl Version {
     }
 
     pub fn list() -> Result<String, Box<dyn std::error::Error>> {
-        let config = Config::new();
+        let config = ConfigImp::new();
         let current_version_dir = config.get_current_version_dir()?;
         let versions_dir = config.get_versions_dir()?;
 
@@ -93,7 +94,7 @@ impl Version {
     }
 
     pub fn list_remote() -> Result<String, Box<dyn std::error::Error>> {
-        let config = Config::new();
+        let config = ConfigImp::new();
         let cache_dir = config.get_cache_dir()?;
         let mut versions: Vec<Version> = Vec::new();
 
