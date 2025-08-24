@@ -28,10 +28,13 @@ pub fn get_release(version: &String) -> Result<Option<Version>, Box<dyn std::err
     let releases = get_releases(ConfigImp::new())?;
     let release = releases.iter().find(|v| &v.get_tag_name() == version);
 
-    if let Some(release) = release {
-        let mut release_found: Version = release.clone();
-        release_found.tag_name = release.get_tag_name();
-        return Ok(Some(release_found));
+    match release {
+        Some(release) => {
+            let mut release_found: Version = release.clone();
+            release_found.tag_name = release.get_tag_name();
+            Ok(Some(release_found))
+        },
+        None => Ok(None)
     }
     Ok(None)
 }
