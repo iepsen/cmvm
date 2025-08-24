@@ -36,7 +36,6 @@ pub fn get_release(version: &String) -> Result<Option<Version>, Box<dyn std::err
         },
         None => Ok(None)
     }
-    Ok(None)
 }
 
 pub fn delete_cache_release(version: &String) -> Result<(), Box<dyn std::error::Error>> {
