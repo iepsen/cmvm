@@ -10,11 +10,11 @@ pub(crate) trait Config {
     fn get_versions_dir(&self) -> Result<PathBuf>;
 }
 #[derive(Debug)]
-pub struct ConfigImp {
+pub struct ConfigImpl {
     dirs: Option<ProjectDirs>,
 }
 
-impl Config for ConfigImp {
+impl Config for ConfigImpl {
     fn new() -> Self {
         Self {
             dirs: ProjectDirs::from("com", "iepsen", "cmvm"),

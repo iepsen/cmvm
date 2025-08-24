@@ -6,7 +6,7 @@ use crate::versions::{Asset, Version};
 use crate::{cache, platform};
 use crate::{http, Config};
 use fs_extra::dir;
-use crate::config::ConfigImp;
+use crate::config::ConfigImpl;
 
 pub fn get_cmake_release(version: &Version) -> Result<(), Box<dyn std::error::Error>> {
     let assets = filter_platform_assets(&version);
@@ -48,7 +48,7 @@ pub fn filter_platform_assets(version: &Version) -> Vec<&Asset> {
 }
 
 fn download(tag_name: &String, asset: &Asset) -> Result<(), Box<dyn std::error::Error>> {
-    let config = ConfigImp::new();
+    let config = ConfigImpl::new();
     let cache_dir = config.get_cache_dir()?;
     let path = cache_dir.join(tag_name);
 
@@ -68,7 +68,7 @@ fn download(tag_name: &String, asset: &Asset) -> Result<(), Box<dyn std::error::
 }
 
 fn uncompress(tag_name: &String, asset: &Asset) -> Result<(), Box<dyn std::error::Error>> {
-    let config = ConfigImp::new();
+    let config = ConfigImpl::new();
     let cache_dir = config.get_cache_dir()?;
     let compressed_file = fs::read(cache_dir.join(tag_name).join(&asset.name))?;
 
@@ -82,7 +82,7 @@ fn uncompress(tag_name: &String, asset: &Asset) -> Result<(), Box<dyn std::error
 }
 
 fn copy(tag_name: &String, asset: &Asset) -> Result<(), Box<dyn std::error::Error>> {
-    let config = ConfigImp::new();
+    let config = ConfigImpl::new();
     let cache_dir = config.get_cache_dir()?;
     let versions_dir = config.get_versions_dir()?;
     let base_path = &cache_dir
@@ -121,7 +121,7 @@ fn copy(tag_name: &String, asset: &Asset) -> Result<(), Box<dyn std::error::Erro
 }
 
 fn clean(tag_name: &String) -> Result<(), Box<dyn std::error::Error>> {
-    let config = ConfigImp::new();
+    let config = ConfigImpl::new();
     let cache_dir = config.get_cache_dir()?;
     cache::delete(&cache_dir.join(tag_name))?;
     println!("[cmvm] Cleaning cache.");

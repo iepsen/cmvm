@@ -4,10 +4,10 @@ use crate::versions::Version;
 use crate::{cache, Config};
 use serde_json::Value;
 use std::{fs, io::Write, thread};
-use crate::config::ConfigImp;
+use crate::config::ConfigImpl;
 
 pub fn build_cache() -> Result<(), Box<dyn std::error::Error>> {
-    let config = ConfigImp::new();
+    let config = ConfigImpl::new();
     let cache_dir = config.get_cache_dir()?;
     if !cache_dir.join(RELEASES_FILE_NAME).exists() {
         println!("[cmvm] Fetching versions at first time...");
@@ -25,7 +25,7 @@ pub fn build_cache() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 pub fn get_release(version: &String) -> Result<Option<Version>, Box<dyn std::error::Error>> {
-    let releases = get_releases(ConfigImp::new())?;
+    let releases = get_releases(ConfigImpl::new())?;
     let release = releases.iter().find(|v| &v.get_tag_name() == version);
 
     match release {
@@ -39,7 +39,7 @@ pub fn get_release(version: &String) -> Result<Option<Version>, Box<dyn std::err
 }
 
 pub fn delete_cache_release(version: &String) -> Result<(), Box<dyn std::error::Error>> {
-    let config = ConfigImp::new();
+    let config = ConfigImpl::new();
     let versions_dir = config.get_versions_dir()?;
     let current_version_dir = config.get_current_version_dir()?;
     if let Some(release) = get_release(version)? {
@@ -54,7 +54,7 @@ pub fn delete_cache_release(version: &String) -> Result<(), Box<dyn std::error::
 }
 
 fn cache_releases(page: Option<i32>) -> Result<(), Box<dyn std::error::Error>> {
-    let config = ConfigImp::new();
+    let config = ConfigImpl::new();
     let cache_dir = config.get_cache_dir()?;
     let current_page = page.unwrap_or(1);
     let first_page = current_page == 1;
@@ -86,7 +86,7 @@ fn cache_releases(page: Option<i32>) -> Result<(), Box<dyn std::error::Error>> {
 }
 
 fn merge(pages: i32) -> Result<(), Box<dyn std::error::Error>> {
-    let config = ConfigImp::new();
+    let config = ConfigImpl::new();
     let cache_dir = config.get_cache_dir()?;
     let mut releases: Vec<Value> = Vec::new();
 
