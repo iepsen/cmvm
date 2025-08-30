@@ -82,7 +82,7 @@ fn cache_releases(cache_dir: PathBuf, data_dir: PathBuf, page: Option<i32>) -> R
         if let Some(link_header) = response.headers().get("link") {
             let pages = get_number_of_pages(link_header.to_str()?)?;
             for page in 2..=pages {
-                cache_releases(cache_dir.clone(), data_dir.clone(), Some(page)).expect("Failed");
+                cache_releases(cache_dir.clone(), data_dir.clone(), Some(page))?;
             }
             merge(cache_dir.clone(), data_dir, pages)?;
         }
