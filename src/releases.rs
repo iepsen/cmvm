@@ -33,7 +33,8 @@ pub fn build_cache(storage: &impl Storage) -> Result<(), BoxError> {
 }
 
 pub fn get_release(version: &String, storage: &impl Storage) -> Result<Option<Version>, BoxError> {
-    let releases = get_releases(storage)?;
+    let cache_dir = storage.get_cache_dir()?;
+    let releases = get_releases(cache_dir)?;
     let release = releases.iter().find(|v| &v.get_tag_name() == version);
 
     match release {
@@ -131,8 +132,7 @@ fn get_number_of_pages(link_header: &str) -> Result<i32, BoxError> {
     Ok(last_page)
 }
 
-fn get_releases(storage: &impl Storage) -> Result<Vec<Version>, BoxError> {
-    let cache_dir = storage.get_cache_dir()?;
+fn get_releases(cache_dir: PathBuf) -> Result<Vec<Version>, BoxError> {
     let releases = cache::open_file(cache_dir.join(RELEASES_FILE_NAME));
     let raw_versions: Vec<Value> = serde_json::from_str(releases.unwrap().as_str())?;
 
@@ -144,4 +144,42 @@ fn get_releases(storage: &impl Storage) -> Result<Vec<Version>, BoxError> {
         .collect();
 
     Ok(versions)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::env;
+
+    #[test]
+    fn test_releases() {
+        let cache_dir = env::temp_dir();
+        let cache_file = cache::create_file(&cache_dir.join(RELEASES_FILE_NAME), cache_dir.as_path());
+        cache_file.unwrap().write("[{\"assets\": [{\"browser_download_url\": \"https://fake-url\", \"content_type\": \"None\", \"name\": \"cmake-4.1.0-macos-universal.dmg\"}], \"assets_url\": \"https://fake-url\", \"tag_name\": \"v4.1.0\", \"draft\": false, \"prerelease\": false}]".as_bytes()).ok();
+
+        let releases = get_releases(cache_dir.clone()).unwrap();
+        let release = &releases[0];
+
+        cache::delete(&cache_dir.join(RELEASES_FILE_NAME)).unwrap();
+
+        assert_eq!(releases.len(), 1);
+        assert_eq!(release.get_tag_name(), "4.1.0");
+        assert_eq!(release.prerelease, Some(false));
+    }
+
+    #[test]
+    fn test_releases_is_rc() {
+        let cache_dir = env::temp_dir();
+        let cache_file = cache::create_file(&cache_dir.join(RELEASES_FILE_NAME), cache_dir.as_path());
+        cache_file.unwrap().write("[{\"assets\": [{\"browser_download_url\": \"https://fake-url\", \"content_type\": \"None\", \"name\": \"cmake-4.1.0-macos-universal.dmg\"}], \"assets_url\": \"https://fake-url\", \"tag_name\": \"v4.1.0\", \"draft\": false, \"prerelease\": true}]".as_bytes()).ok();
+
+        let releases = get_releases(cache_dir.clone()).unwrap();
+        let release = &releases[0];
+
+        cache::delete(&cache_dir.join(RELEASES_FILE_NAME)).unwrap();
+
+        assert_eq!(releases.len(), 1);
+        assert_eq!(release.get_tag_name(), "4.1.0");
+        assert_eq!(release.prerelease, Some(true));
+    }
 }
