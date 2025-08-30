@@ -1,10 +1,9 @@
 use std::fs;
 use std::io::Read;
 use std::path::{Path, PathBuf};
-use crate::storage::{Storage, StorageImpl};
+use crate::storage::Storage;
 
-pub fn bootstrap() -> Result<(), Box<dyn std::error::Error>> {
-    let storage = StorageImpl::default();
+pub fn bootstrap(storage: &impl Storage) -> Result<(), Box<dyn std::error::Error>> {
     let data_dir = storage.get_data_dir()?;
     let cache_dir = storage.get_cache_dir()?;
     let versions_dir = storage.get_versions_dir()?;
@@ -31,13 +30,10 @@ pub fn create_dir(path: &Path) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-pub fn create_file(path: &Path) -> Result<fs::File, Box<dyn std::error::Error>> {
-    let storage = StorageImpl::default();
-    let data_dir = storage.get_data_dir()?;
+pub fn create_file(path: &Path, data_dir: &Path) -> Result<fs::File, Box<dyn std::error::Error>> {
     if data_dir.join(path).exists() {
         delete(&data_dir.join(path))?;
     }
-
     Ok(fs::File::create(data_dir.join(path))?)
 }
 

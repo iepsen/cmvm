@@ -6,9 +6,9 @@ use crate::versions::{Asset, Version};
 use crate::{cache, platform};
 use crate::{http};
 use fs_extra::dir;
-use crate::storage::{Storage, StorageImpl};
+use crate::storage::Storage;
 
-pub fn get_cmake_release(version: &Version) -> Result<(), Box<dyn std::error::Error>> {
+pub fn get_cmake_release(version: &Version, storage: &impl Storage) -> Result<(), Box<dyn std::error::Error>> {
     let assets = filter_platform_assets(&version);
 
     if assets.len() == 0 {
@@ -18,10 +18,10 @@ pub fn get_cmake_release(version: &Version) -> Result<(), Box<dyn std::error::Er
     let asset = assets.first();
 
     if let Some(asset) = asset {
-        download(&version.get_tag_name(), &asset)?;
-        uncompress(&version.get_tag_name(), &asset)?;
-        copy(&version.get_tag_name(), asset)?;
-        clean(&version.get_tag_name())?;
+        download(&version.get_tag_name(), &asset, storage)?;
+        uncompress(&version.get_tag_name(), &asset, storage)?;
+        copy(&version.get_tag_name(), asset, storage)?;
+        clean(&version.get_tag_name(), storage)?;
     }
 
     Ok(())
@@ -47,28 +47,27 @@ pub fn filter_platform_assets(version: &Version) -> Vec<&Asset> {
         .collect()
 }
 
-fn download(tag_name: &String, asset: &Asset) -> Result<(), Box<dyn std::error::Error>> {
-    let storage = StorageImpl::default();
+fn download(tag_name: &String, asset: &Asset, storage: &impl Storage) -> Result<(), Box<dyn std::error::Error>> {
     let cache_dir = storage.get_cache_dir()?;
-    let path = cache_dir.join(tag_name);
+    let data_dir = storage.get_data_dir()?;
+    let version_dir_path = cache_dir.join(tag_name);
 
-    if path.exists() {
-        cache::delete(&path)?;
+    if version_dir_path.exists() {
+        cache::delete(&version_dir_path)?;
     }
 
-    cache::create_dir(&path)?;
+    cache::create_dir(&version_dir_path)?;
 
     println!("[cmvm] Downloading {}.", asset.browser_download_url);
     let mut response = http::get(&asset.browser_download_url)?;
     let file_path = &cache_dir.join(tag_name).join(&asset.name);
-    let mut file = cache::create_file(file_path)?;
+    let mut file = cache::create_file(file_path, data_dir.as_path())?;
     response.copy_to(&mut file)?;
 
     Ok(())
 }
 
-fn uncompress(tag_name: &String, asset: &Asset) -> Result<(), Box<dyn std::error::Error>> {
-    let storage = StorageImpl::default();
+fn uncompress(tag_name: &String, asset: &Asset, storage: &impl Storage) -> Result<(), Box<dyn std::error::Error>> {
     let cache_dir = storage.get_cache_dir()?;
     let compressed_file = fs::read(cache_dir.join(tag_name).join(&asset.name))?;
 
@@ -81,8 +80,7 @@ fn uncompress(tag_name: &String, asset: &Asset) -> Result<(), Box<dyn std::error
     Ok(())
 }
 
-fn copy(tag_name: &String, asset: &Asset) -> Result<(), Box<dyn std::error::Error>> {
-    let storage = StorageImpl::default();
+fn copy(tag_name: &String, asset: &Asset, storage: &impl Storage) -> Result<(), Box<dyn std::error::Error>> {
     let cache_dir = storage.get_cache_dir()?;
     let versions_dir = storage.get_versions_dir()?;
     let base_path = &cache_dir
@@ -120,8 +118,7 @@ fn copy(tag_name: &String, asset: &Asset) -> Result<(), Box<dyn std::error::Erro
     Ok(())
 }
 
-fn clean(tag_name: &String) -> Result<(), Box<dyn std::error::Error>> {
-    let storage = StorageImpl::default();
+fn clean(tag_name: &String, storage: &impl Storage) -> Result<(), Box<dyn std::error::Error>> {
     let cache_dir = storage.get_cache_dir()?;
     cache::delete(&cache_dir.join(tag_name))?;
     println!("[cmvm] Cleaning cache.");

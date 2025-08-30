@@ -11,6 +11,7 @@ mod releases;
 mod versions;
 
 use commands::Commands;
+use crate::storage::StorageImpl;
 
 #[derive(Parser)]
 #[clap(version, about = "cmake version manager")]
@@ -42,26 +43,28 @@ enum CliCommands {
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    cache::bootstrap()?;
+    let storage = StorageImpl::default();
+
+    cache::bootstrap(&storage)?;
 
     match Cli::parse().command {
         CliCommands::Install { v } => {
-            Commands::install_version(&v)?;
+            Commands::install_version(&v, &storage)?;
         }
         CliCommands::Uninstall { v } => {
-            Commands::uninstall_version(&v)?;
+            Commands::uninstall_version(&v, &storage)?;
         }
         CliCommands::Use { v } => {
-            Commands::use_version(&v)?;
+            Commands::use_version(&v, &storage)?;
         }
         CliCommands::List => {
-            Commands::list_versions()?;
+            Commands::list_versions(&storage)?;
         }
         CliCommands::ListRemote => {
-            Commands::list_remote_versions()?;
+            Commands::list_remote_versions(&storage)?;
         }
         CliCommands::Shell => {
-            Commands::display_shell_instructions()?;
+            Commands::display_shell_instructions(&storage)?;
         }
     }
     Ok(())
