@@ -3,7 +3,6 @@ use directories::ProjectDirs;
 use std::path::PathBuf;
 
 pub(crate) trait Config {
-    fn new() -> Self;
     fn get_cache_dir(&self) -> Result<PathBuf>;
     fn get_data_dir(&self) -> Result<PathBuf>;
     fn get_current_version_dir(&self) -> Result<PathBuf>;
@@ -14,13 +13,15 @@ pub struct ConfigImpl {
     dirs: Option<ProjectDirs>,
 }
 
-impl Config for ConfigImpl {
-    fn new() -> Self {
+impl Default for ConfigImpl {
+    fn default() -> Self {
         Self {
             dirs: ProjectDirs::from("com", "iepsen", "cmvm"),
         }
     }
+}
 
+impl Config for ConfigImpl {
     fn get_cache_dir(&self) -> Result<PathBuf> {
         if let Some(dirs) = &self.dirs {
             Ok(dirs.cache_dir().to_path_buf())

@@ -40,7 +40,7 @@ impl Version {
     }
 
     pub fn r#use(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        let config = ConfigImpl::new();
+        let config = ConfigImpl::default();
         let current_version_dir = config.get_current_version_dir()?;
         let versions_dir = config.get_versions_dir()?;
 
@@ -57,7 +57,7 @@ impl Version {
     }
 
     pub fn list() -> Result<String, Box<dyn std::error::Error>> {
-        let config = ConfigImpl::new();
+        let config = ConfigImpl::default();
         let current_version_dir = config.get_current_version_dir()?;
         let versions_dir = config.get_versions_dir()?;
         let versions = cache::ls(&versions_dir)?;
@@ -81,7 +81,7 @@ impl Version {
     }
 
     pub fn list_remote() -> Result<String, Box<dyn std::error::Error>> {
-        let config = ConfigImpl::new();
+        let config = ConfigImpl::default();
         let cache_dir = config.get_cache_dir()?;
         let mut versions: Vec<Version> = Vec::new();
         let releases = cache::open_file(cache_dir.join(RELEASES_FILE_NAME))?;

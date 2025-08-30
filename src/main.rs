@@ -62,7 +62,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             Commands::list_remote_versions()?;
         }
         CliCommands::Shell => {
-            let config = ConfigImpl::new();
+            let config = ConfigImpl::default();
             let current_version_dir = config.get_current_version_dir()?;
 
             println!(
