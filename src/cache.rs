@@ -1,8 +1,7 @@
-use crate::Storage;
 use std::fs;
 use std::io::Read;
 use std::path::{Path, PathBuf};
-use crate::storage::StorageImpl;
+use crate::storage::{Storage, StorageImpl};
 
 pub fn bootstrap() -> Result<(), Box<dyn std::error::Error>> {
     let storage = StorageImpl::default();

@@ -1,8 +1,8 @@
 use crate::constants::RELEASES_FILE_NAME;
-use crate::{cache, package, platform, Storage};
+use crate::{cache, package, platform};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use crate::storage::StorageImpl;
+use crate::storage::{Storage, StorageImpl};
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, Ord, PartialEq, PartialOrd)]
 pub struct Asset {

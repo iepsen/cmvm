@@ -1,10 +1,10 @@
 use crate::constants::{BASE_URL, RELEASES_FILE_NAME};
 use crate::http;
 use crate::versions::Version;
-use crate::{cache, Storage};
+use crate::{cache};
 use serde_json::Value;
 use std::{fs, io::Write, thread};
-use crate::storage::StorageImpl;
+use crate::storage::{Storage, StorageImpl};
 
 pub fn build_cache() -> Result<(), Box<dyn std::error::Error>> {
     let storage = StorageImpl::default();
