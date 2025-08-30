@@ -4,9 +4,9 @@ use tar::Archive;
 extern crate fs_extra;
 use crate::versions::{Asset, Version};
 use crate::{cache, platform};
-use crate::{http, Storage};
+use crate::{http};
 use fs_extra::dir;
-use crate::storage::StorageImpl;
+use crate::storage::{Storage, StorageImpl};
 
 pub fn get_cmake_release(version: &Version) -> Result<(), Box<dyn std::error::Error>> {
     let assets = filter_platform_assets(&version);

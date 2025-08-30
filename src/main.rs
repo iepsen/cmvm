@@ -10,7 +10,6 @@ mod platform;
 mod releases;
 mod versions;
 
-use crate::storage::{Storage, StorageImpl};
 use commands::Commands;
 
 #[derive(Parser)]
@@ -62,20 +61,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             Commands::list_remote_versions()?;
         }
         CliCommands::Shell => {
-            let storage = StorageImpl::default();
-            let current_version_dir = storage.get_current_version_dir()?;
-
-            println!(
-                "[cmvm] {} {} {} {}\n\n {}",
-                "When `cmvm use <version>` is invoked, it changes the `current`",
-                "symbolic link to the right cmake binary path. As cmvm doesn't",
-                "manage the `current` path in the system, it requires to",
-                "manually add it to the $PATH:",
-                format!(
-                    "export PATH=\"{}/bin:$PATH\"",
-                    &current_version_dir.to_string_lossy()
-                )
-            );
+            Commands::display_shell_instructions()?;
         }
     }
     Ok(())

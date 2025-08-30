@@ -1,5 +1,5 @@
-use crate::{package, platform::is_supported_platform, releases, versions::Version, Storage};
-use crate::storage::StorageImpl;
+use crate::{package, platform::is_supported_platform, releases, versions::Version};
+use crate::storage::{Storage, StorageImpl};
 
 pub struct Commands {}
 
@@ -91,6 +91,25 @@ impl Commands {
         } else {
             println!("[cmvm] Version {} not found.", v);
         }
+        Ok(())
+    }
+
+    pub fn display_shell_instructions() -> Result<(), Box<dyn std::error::Error>> {
+        let storage = StorageImpl::default();
+        let current_version_dir = storage.get_current_version_dir()?;
+
+        println!(
+            "[cmvm] {} {} {} {}\n\n {}",
+            "When `cmvm use <version>` is invoked, it changes the `current`",
+            "symbolic link to the right cmake binary path. As cmvm doesn't",
+            "manage the `current` path in the system, it requires to",
+            "manually add it to the $PATH:",
+            format!(
+                "export PATH=\"{}/bin:$PATH\"",
+                &current_version_dir.to_string_lossy()
+            )
+        );
+
         Ok(())
     }
 }
