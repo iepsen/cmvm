@@ -1,5 +1,5 @@
-use crate::{package, platform::is_supported_platform, releases, versions::Version, Config};
-use crate::config::ConfigImpl;
+use crate::{package, platform::is_supported_platform, releases, versions::Version, Storage};
+use crate::storage::StorageImpl;
 
 pub struct Commands {}
 
@@ -7,8 +7,8 @@ impl Commands {
     pub fn install_version(v: &String) -> Result<(), Box<dyn std::error::Error>> {
         releases::build_cache()?;
 
-        let config = ConfigImpl::default();
-        let versions_dir = config.get_versions_dir()?;
+        let storage = StorageImpl::default();
+        let versions_dir = storage.get_versions_dir()?;
 
         if let Some(version) = releases::get_release(&v.trim().to_string())? {
             if versions_dir.join(&version.get_tag_name()).exists() {

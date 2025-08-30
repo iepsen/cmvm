@@ -2,18 +2,18 @@ use anyhow::{anyhow, Result};
 use directories::ProjectDirs;
 use std::path::PathBuf;
 
-pub(crate) trait Config {
+pub(crate) trait Storage {
     fn get_cache_dir(&self) -> Result<PathBuf>;
     fn get_data_dir(&self) -> Result<PathBuf>;
     fn get_current_version_dir(&self) -> Result<PathBuf>;
     fn get_versions_dir(&self) -> Result<PathBuf>;
 }
 #[derive(Debug)]
-pub struct ConfigImpl {
+pub struct StorageImpl {
     dirs: Option<ProjectDirs>,
 }
 
-impl Default for ConfigImpl {
+impl Default for StorageImpl {
     fn default() -> Self {
         Self {
             dirs: ProjectDirs::from("com", "iepsen", "cmvm"),
@@ -21,7 +21,7 @@ impl Default for ConfigImpl {
     }
 }
 
-impl Config for ConfigImpl {
+impl Storage for StorageImpl {
     fn get_cache_dir(&self) -> Result<PathBuf> {
         if let Some(dirs) = &self.dirs {
             Ok(dirs.cache_dir().to_path_buf())
