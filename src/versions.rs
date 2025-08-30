@@ -2,6 +2,7 @@ use crate::constants::RELEASES_FILE_NAME;
 use crate::{cache, package, platform, Config};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use crate::config::ConfigImpl;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, Ord, PartialEq, PartialOrd)]
 pub struct Asset {
@@ -15,7 +16,7 @@ pub struct Version {
     pub major: Option<i32>,
     pub minor: Option<i32>,
     pub patch: Option<i32>,
-    pub rc: Option<String>,
+    pub prerelease: Option<bool>,
     pub tag_name: String,
     pub assets: Vec<Asset>,
 }
@@ -26,35 +27,23 @@ impl Version {
     }
 
     pub fn from_raw_value(raw_value: Value) -> Result<Version, Box<dyn std::error::Error>> {
-        let mut version: Version = serde_json::from_value(raw_value)?;
+        let version: Version = serde_json::from_value(raw_value)?;
 
-        // normalizing "-rc" prefixed releases: 3.14.0-rc3 -> 3.14.0.rc3
-        let tag_name = version.get_tag_name().replace("-", ".");
-        let mut split_version = tag_name.split(".");
-
-        let (major, minor, patch, rc) = (
-            split_version.next().unwrap().parse::<i32>().unwrap(),
-            split_version.next().unwrap().parse::<i32>().unwrap(),
-            split_version.next().unwrap().parse::<i32>().unwrap(),
-            split_version
-                .next()
-                .unwrap_or(&"")
-                .parse::<String>()
-                .unwrap(),
-        );
-
-        version.major = Some(major);
-        version.minor = Some(minor);
-        version.patch = Some(patch);
-        version.rc = Some(rc.to_string());
-
-        Ok(version)
+        Ok(Self {
+            major: Some(version.get_version_vec().get(0).unwrap().clone()),
+            minor: Some(version.get_version_vec().get(1).unwrap().clone()),
+            patch: Some(version.get_version_vec().get(2).unwrap().clone()),
+            prerelease: version.prerelease,
+            tag_name: version.tag_name,
+            assets: version.assets,
+        })
     }
 
     pub fn r#use(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        let config = Config::new();
+        let config = ConfigImpl::new();
         let current_version_dir = config.get_current_version_dir()?;
         let versions_dir = config.get_versions_dir()?;
+
         if current_version_dir.exists() {
             cache::delete(&current_version_dir)?;
         }
@@ -68,10 +57,9 @@ impl Version {
     }
 
     pub fn list() -> Result<String, Box<dyn std::error::Error>> {
-        let config = Config::new();
+        let config = ConfigImpl::new();
         let current_version_dir = config.get_current_version_dir()?;
         let versions_dir = config.get_versions_dir()?;
-
         let versions = cache::ls(&versions_dir)?;
         let mut mapped_versions: Vec<String> = Vec::new();
         let current = current_version_dir.read_link().unwrap_or_default();
@@ -93,16 +81,16 @@ impl Version {
     }
 
     pub fn list_remote() -> Result<String, Box<dyn std::error::Error>> {
-        let config = Config::new();
+        let config = ConfigImpl::new();
         let cache_dir = config.get_cache_dir()?;
         let mut versions: Vec<Version> = Vec::new();
-
         let releases = cache::open_file(cache_dir.join(RELEASES_FILE_NAME))?;
         let raw_versions: Vec<Value> = serde_json::from_str(releases.as_str())?;
+
         for raw_version in raw_versions {
             let version = Version::from_raw_value(raw_version)?;
 
-            // skip release canditate versions
+            // skip release candidate versions
             if version.is_rc() {
                 continue;
             }
@@ -131,8 +119,18 @@ impl Version {
         Ok(version_tags.join("\n"))
     }
 
+    fn get_version_vec(&self) -> Vec<i32> {
+        self
+            .get_tag_name()
+            .replace("-", ".")
+            .split('.')
+            .into_iter()
+            .map(|s| s.parse::<i32>().unwrap_or(0))
+            .collect()
+    }
+
     fn is_rc(&self) -> bool {
-        self.tag_name.contains("-rc")
+        self.prerelease.unwrap_or(false)
     }
 }
 
@@ -149,9 +147,9 @@ mod test {
             major: Some(1),
             minor: Some(10),
             patch: Some(0),
-            rc: None,
             tag_name: "v1.10.0".to_string(),
             assets: vec![],
+            prerelease: Some(false),
         };
 
         assert_eq!(version.get_tag_name(), "1.10.0");
@@ -163,7 +161,7 @@ mod test {
             major: Some(3),
             minor: Some(20),
             patch: Some(10),
-            rc: None,
+            prerelease: Some(false),
             tag_name: "v3.20.10".to_string(),
             assets: vec![],
         };
@@ -207,6 +205,7 @@ mod test {
         });
         let raw_version = json!({
             "tag_name": "v3.22.3-rc5",
+            "prerelease": true,
             "assets": [raw_asset]
         });
 
@@ -217,7 +216,7 @@ mod test {
         assert_eq!(version.major, Some(3));
         assert_eq!(version.minor, Some(22));
         assert_eq!(version.patch, Some(3));
-        assert_eq!(version.rc, Some("rc5".to_string()));
+        assert_eq!(version.prerelease, Some(true));
         assert_eq!(version.is_rc(), true);
     }
 }

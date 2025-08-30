@@ -10,7 +10,7 @@ mod platform;
 mod releases;
 mod versions;
 
-use crate::config::Config;
+use crate::config::{Config, ConfigImpl};
 use commands::Commands;
 
 #[derive(Parser)]
@@ -62,7 +62,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             Commands::list_remote_versions()?;
         }
         CliCommands::Shell => {
-            let config = Config::new();
+            let config = ConfigImpl::new();
             let current_version_dir = config.get_current_version_dir()?;
 
             println!(
