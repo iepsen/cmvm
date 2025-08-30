@@ -153,14 +153,15 @@ mod tests {
 
     #[test]
     fn test_releases() {
-        let cache_dir = env::temp_dir();
+        let cache_dir = env::temp_dir().join("test_releases");
+        cache::create_dir(cache_dir.as_path()).unwrap();
         let cache_file = cache::create_file(&cache_dir.join(RELEASES_FILE_NAME), cache_dir.as_path());
         cache_file.unwrap().write("[{\"assets\": [{\"browser_download_url\": \"https://fake-url\", \"content_type\": \"None\", \"name\": \"cmake-4.1.0-macos-universal.dmg\"}], \"assets_url\": \"https://fake-url\", \"tag_name\": \"v4.1.0\", \"draft\": false, \"prerelease\": false}]".as_bytes()).ok();
 
         let releases = get_releases(cache_dir.clone()).unwrap();
         let release = &releases[0];
 
-        cache::delete(&cache_dir.join(RELEASES_FILE_NAME)).unwrap();
+        cache::delete(&*cache_dir).ok();
 
         assert_eq!(releases.len(), 1);
         assert_eq!(release.get_tag_name(), "4.1.0");
@@ -169,14 +170,15 @@ mod tests {
 
     #[test]
     fn test_releases_is_rc() {
-        let cache_dir = env::temp_dir();
+        let cache_dir = env::temp_dir().join("test_releases_is_rc");
+        cache::create_dir(cache_dir.as_path()).unwrap();
         let cache_file = cache::create_file(&cache_dir.join(RELEASES_FILE_NAME), cache_dir.as_path());
         cache_file.unwrap().write("[{\"assets\": [{\"browser_download_url\": \"https://fake-url\", \"content_type\": \"None\", \"name\": \"cmake-4.1.0-macos-universal.dmg\"}], \"assets_url\": \"https://fake-url\", \"tag_name\": \"v4.1.0\", \"draft\": false, \"prerelease\": true}]".as_bytes()).ok();
 
         let releases = get_releases(cache_dir.clone()).unwrap();
         let release = &releases[0];
 
-        cache::delete(&cache_dir.join(RELEASES_FILE_NAME)).unwrap();
+        cache::delete(&*cache_dir).ok();
 
         assert_eq!(releases.len(), 1);
         assert_eq!(release.get_tag_name(), "4.1.0");
