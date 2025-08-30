@@ -1,14 +1,14 @@
 use crate::constants::{BASE_URL, RELEASES_FILE_NAME};
 use crate::http;
 use crate::versions::Version;
-use crate::{cache, Config};
+use crate::{cache, Storage};
 use serde_json::Value;
 use std::{fs, io::Write, thread};
-use crate::config::ConfigImpl;
+use crate::storage::StorageImpl;
 
 pub fn build_cache() -> Result<(), Box<dyn std::error::Error>> {
-    let config = ConfigImpl::default();
-    let cache_dir = config.get_cache_dir()?;
+    let storage = StorageImpl::default();
+    let cache_dir = storage.get_cache_dir()?;
     if !cache_dir.join(RELEASES_FILE_NAME).exists() {
         println!("[cmvm] Fetching versions at first time...");
         if cache_releases(None).is_err() {
@@ -25,7 +25,7 @@ pub fn build_cache() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 pub fn get_release(version: &String) -> Result<Option<Version>, Box<dyn std::error::Error>> {
-    let releases = get_releases(ConfigImpl::default())?;
+    let releases = get_releases(StorageImpl::default())?;
     let release = releases.iter().find(|v| &v.get_tag_name() == version);
 
     match release {
@@ -39,9 +39,9 @@ pub fn get_release(version: &String) -> Result<Option<Version>, Box<dyn std::err
 }
 
 pub fn delete_cache_release(version: &String) -> Result<(), Box<dyn std::error::Error>> {
-    let config = ConfigImpl::default();
-    let versions_dir = config.get_versions_dir()?;
-    let current_version_dir = config.get_current_version_dir()?;
+    let storage = StorageImpl::default();
+    let versions_dir = storage.get_versions_dir()?;
+    let current_version_dir = storage.get_current_version_dir()?;
     if let Some(release) = get_release(version)? {
         let version_path = versions_dir.join(release.get_tag_name());
         if current_version_dir.read_link()? == version_path {
@@ -54,8 +54,8 @@ pub fn delete_cache_release(version: &String) -> Result<(), Box<dyn std::error::
 }
 
 fn cache_releases(page: Option<i32>) -> Result<(), Box<dyn std::error::Error>> {
-    let config = ConfigImpl::default();
-    let cache_dir = config.get_cache_dir()?;
+    let storage = StorageImpl::default();
+    let cache_dir = storage.get_cache_dir()?;
     let current_page = page.unwrap_or(1);
     let first_page = current_page == 1;
     let mut response = http::get(format!("{}?page={}", BASE_URL, current_page).as_str())?;
@@ -86,8 +86,8 @@ fn cache_releases(page: Option<i32>) -> Result<(), Box<dyn std::error::Error>> {
 }
 
 fn merge(pages: i32) -> Result<(), Box<dyn std::error::Error>> {
-    let config = ConfigImpl::default();
-    let cache_dir = config.get_cache_dir()?;
+    let storage = StorageImpl::default();
+    let cache_dir = storage.get_cache_dir()?;
     let mut releases: Vec<Value> = Vec::new();
 
     if cache_dir.join(RELEASES_FILE_NAME).exists() {
@@ -128,8 +128,8 @@ fn get_number_of_pages(link_header: &str) -> Result<i32, Box<dyn std::error::Err
     Ok(last_page)
 }
 
-fn get_releases(config: impl Config) -> Result<Vec<Version>, Box<dyn std::error::Error>> {
-    let cache_dir = config.get_cache_dir()?;
+fn get_releases(storage: impl Storage) -> Result<Vec<Version>, Box<dyn std::error::Error>> {
+    let cache_dir = storage.get_cache_dir()?;
     let releases = cache::open_file(cache_dir.join(RELEASES_FILE_NAME));
     let raw_versions: Vec<Value> = serde_json::from_str(releases.unwrap().as_str())?;
 

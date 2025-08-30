@@ -2,7 +2,7 @@ use clap::{Parser, Subcommand};
 
 mod cache;
 mod commands;
-mod config;
+mod storage;
 mod constants;
 mod http;
 mod package;
@@ -10,7 +10,7 @@ mod platform;
 mod releases;
 mod versions;
 
-use crate::config::{Config, ConfigImpl};
+use crate::storage::{Storage, StorageImpl};
 use commands::Commands;
 
 #[derive(Parser)]
@@ -62,8 +62,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             Commands::list_remote_versions()?;
         }
         CliCommands::Shell => {
-            let config = ConfigImpl::default();
-            let current_version_dir = config.get_current_version_dir()?;
+            let storage = StorageImpl::default();
+            let current_version_dir = storage.get_current_version_dir()?;
 
             println!(
                 "[cmvm] {} {} {} {}\n\n {}",

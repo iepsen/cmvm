@@ -1,8 +1,8 @@
 use crate::constants::RELEASES_FILE_NAME;
-use crate::{cache, package, platform, Config};
+use crate::{cache, package, platform, Storage};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use crate::config::ConfigImpl;
+use crate::storage::StorageImpl;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, Ord, PartialEq, PartialOrd)]
 pub struct Asset {
@@ -40,9 +40,9 @@ impl Version {
     }
 
     pub fn r#use(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        let config = ConfigImpl::default();
-        let current_version_dir = config.get_current_version_dir()?;
-        let versions_dir = config.get_versions_dir()?;
+        let storage = StorageImpl::default();
+        let current_version_dir = storage.get_current_version_dir()?;
+        let versions_dir = storage.get_versions_dir()?;
 
         if current_version_dir.exists() {
             cache::delete(&current_version_dir)?;
@@ -57,9 +57,9 @@ impl Version {
     }
 
     pub fn list() -> Result<String, Box<dyn std::error::Error>> {
-        let config = ConfigImpl::default();
-        let current_version_dir = config.get_current_version_dir()?;
-        let versions_dir = config.get_versions_dir()?;
+        let storage = StorageImpl::default();
+        let current_version_dir = storage.get_current_version_dir()?;
+        let versions_dir = storage.get_versions_dir()?;
         let versions = cache::ls(&versions_dir)?;
         let mut mapped_versions: Vec<String> = Vec::new();
         let current = current_version_dir.read_link().unwrap_or_default();
@@ -81,8 +81,8 @@ impl Version {
     }
 
     pub fn list_remote() -> Result<String, Box<dyn std::error::Error>> {
-        let config = ConfigImpl::default();
-        let cache_dir = config.get_cache_dir()?;
+        let storage = StorageImpl::default();
+        let cache_dir = storage.get_cache_dir()?;
         let mut versions: Vec<Version> = Vec::new();
         let releases = cache::open_file(cache_dir.join(RELEASES_FILE_NAME))?;
         let raw_versions: Vec<Value> = serde_json::from_str(releases.as_str())?;
