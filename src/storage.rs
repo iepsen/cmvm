@@ -8,7 +8,7 @@ pub(crate) trait Storage {
     fn get_current_version_dir(&self) -> Result<PathBuf>;
     fn get_versions_dir(&self) -> Result<PathBuf>;
 }
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct StorageImpl {
     dirs: Option<ProjectDirs>,
 }

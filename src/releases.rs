@@ -3,29 +3,37 @@ use crate::http;
 use crate::versions::Version;
 use crate::{cache};
 use serde_json::Value;
-use std::{fs, io::Write, thread};
-use crate::storage::{Storage, StorageImpl};
+use std::{fs, io::Write};
+use std::path::PathBuf;
+use std::thread::spawn;
+use crate::storage::Storage;
 
-pub fn build_cache() -> Result<(), Box<dyn std::error::Error>> {
-    let storage = StorageImpl::default();
+type BoxError = Box<dyn std::error::Error>;
+
+pub fn build_cache(storage: &impl Storage) -> Result<(), BoxError> {
     let cache_dir = storage.get_cache_dir()?;
-    if !cache_dir.join(RELEASES_FILE_NAME).exists() {
-        println!("[cmvm] Fetching versions at first time...");
-        if cache_releases(None).is_err() {
-            println!("[cmvm] Failed to fetch remote versions");
+    let data_dir = storage.get_data_dir()?;
+
+    match cache_dir.join(RELEASES_FILE_NAME).exists() {
+        true => {
+            spawn(|| {
+                if cache_releases(cache_dir, data_dir, None).is_err() {
+                    println!("[cmvm] Failed to fetch remote versions");
+                }
+            });
         }
-    } else {
-        thread::spawn(|| {
-            if cache_releases(None).is_err() {
+        false => {
+            println!("[cmvm] Fetching versions for the first time...");
+            if cache_releases(cache_dir, data_dir, None).is_err() {
                 println!("[cmvm] Failed to fetch remote versions");
             }
-        });
+        }
     }
     Ok(())
 }
 
-pub fn get_release(version: &String) -> Result<Option<Version>, Box<dyn std::error::Error>> {
-    let releases = get_releases(StorageImpl::default())?;
+pub fn get_release(version: &String, storage: &impl Storage) -> Result<Option<Version>, BoxError> {
+    let releases = get_releases(storage)?;
     let release = releases.iter().find(|v| &v.get_tag_name() == version);
 
     match release {
@@ -38,11 +46,10 @@ pub fn get_release(version: &String) -> Result<Option<Version>, Box<dyn std::err
     }
 }
 
-pub fn delete_cache_release(version: &String) -> Result<(), Box<dyn std::error::Error>> {
-    let storage = StorageImpl::default();
+pub fn delete_cache_release(version: &String, storage: &impl Storage) -> Result<(), BoxError> {
     let versions_dir = storage.get_versions_dir()?;
     let current_version_dir = storage.get_current_version_dir()?;
-    if let Some(release) = get_release(version)? {
+    if let Some(release) = get_release(version, storage)? {
         let version_path = versions_dir.join(release.get_tag_name());
         if current_version_dir.read_link()? == version_path {
             cache::delete(&current_version_dir)?;
@@ -53,9 +60,7 @@ pub fn delete_cache_release(version: &String) -> Result<(), Box<dyn std::error::
     Ok(())
 }
 
-fn cache_releases(page: Option<i32>) -> Result<(), Box<dyn std::error::Error>> {
-    let storage = StorageImpl::default();
-    let cache_dir = storage.get_cache_dir()?;
+fn cache_releases(cache_dir: PathBuf, data_dir: PathBuf, page: Option<i32>) -> Result<(), BoxError> {
     let current_page = page.unwrap_or(1);
     let first_page = current_page == 1;
     let mut response = http::get(format!("{}?page={}", BASE_URL, current_page).as_str())?;
@@ -70,24 +75,22 @@ fn cache_releases(page: Option<i32>) -> Result<(), Box<dyn std::error::Error>> {
         cache::delete(&current_page_file)?;
     }
 
-    let mut file = cache::create_file(current_page_file.as_path())?;
+    let mut file = cache::create_file(current_page_file.as_path(), data_dir.as_path())?;
     response.copy_to(&mut file)?;
 
     if first_page {
         if let Some(link_header) = response.headers().get("link") {
             let pages = get_number_of_pages(link_header.to_str()?)?;
             for page in 2..=pages {
-                cache_releases(Some(page))?;
+                cache_releases(cache_dir.clone(), data_dir.clone(), Some(page)).expect("Failed");
             }
-            merge(pages)?;
+            merge(cache_dir.clone(), data_dir, pages)?;
         }
     }
     Ok(())
 }
 
-fn merge(pages: i32) -> Result<(), Box<dyn std::error::Error>> {
-    let storage = StorageImpl::default();
-    let cache_dir = storage.get_cache_dir()?;
+fn merge(cache_dir: PathBuf, data_dir: PathBuf, pages: i32) -> Result<(), BoxError> {
     let mut releases: Vec<Value> = Vec::new();
 
     if cache_dir.join(RELEASES_FILE_NAME).exists() {
@@ -111,14 +114,14 @@ fn merge(pages: i32) -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    let mut cache_file = cache::create_file(&cache_dir.join(RELEASES_FILE_NAME))?;
+    let mut cache_file = cache::create_file(&cache_dir.join(RELEASES_FILE_NAME), data_dir.as_path())?;
     let cache_json = serde_json::to_string(&releases)?;
     cache_file.write(cache_json.as_bytes())?;
 
     Ok(())
 }
 
-fn get_number_of_pages(link_header: &str) -> Result<i32, Box<dyn std::error::Error>> {
+fn get_number_of_pages(link_header: &str) -> Result<i32, BoxError> {
     let mut last_page = 1;
     let parsed_link_header = parse_link_header::parse(link_header)?;
     let last_link = parsed_link_header.get(&Some("last".to_string()));
@@ -128,7 +131,7 @@ fn get_number_of_pages(link_header: &str) -> Result<i32, Box<dyn std::error::Err
     Ok(last_page)
 }
 
-fn get_releases(storage: impl Storage) -> Result<Vec<Version>, Box<dyn std::error::Error>> {
+fn get_releases(storage: &impl Storage) -> Result<Vec<Version>, BoxError> {
     let cache_dir = storage.get_cache_dir()?;
     let releases = cache::open_file(cache_dir.join(RELEASES_FILE_NAME));
     let raw_versions: Vec<Value> = serde_json::from_str(releases.unwrap().as_str())?;
