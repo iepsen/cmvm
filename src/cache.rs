@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use crate::config::ConfigImpl;
 
 pub fn bootstrap() -> Result<(), Box<dyn std::error::Error>> {
-    let config = ConfigImpl::new();
+    let config = ConfigImpl::default();
     let data_dir = config.get_data_dir()?;
     let cache_dir = config.get_cache_dir()?;
     let versions_dir = config.get_versions_dir()?;
@@ -33,7 +33,7 @@ pub fn create_dir(path: &Path) -> Result<(), Box<dyn std::error::Error>> {
 }
 
 pub fn create_file(path: &Path) -> Result<fs::File, Box<dyn std::error::Error>> {
-    let config = ConfigImpl::new();
+    let config = ConfigImpl::default();
     let data_dir = config.get_data_dir()?;
     if data_dir.join(path).exists() {
         delete(&data_dir.join(path))?;

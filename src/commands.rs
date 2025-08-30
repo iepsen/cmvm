@@ -7,7 +7,7 @@ impl Commands {
     pub fn install_version(v: &String) -> Result<(), Box<dyn std::error::Error>> {
         releases::build_cache()?;
 
-        let config = ConfigImpl::new();
+        let config = ConfigImpl::default();
         let versions_dir = config.get_versions_dir()?;
 
         if let Some(version) = releases::get_release(&v.trim().to_string())? {
