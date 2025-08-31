@@ -23,34 +23,30 @@ impl Default for StorageImpl {
 
 impl Storage for StorageImpl {
     fn get_cache_dir(&self) -> Result<PathBuf> {
-        if let Some(dirs) = &self.dirs {
-            Ok(dirs.cache_dir().to_path_buf())
-        } else {
-            Err(anyhow!("Cache dir not found"))
+        match &self.dirs {
+            Some(dirs) => Ok(PathBuf::from(dirs.cache_dir())),
+            None => Err(anyhow!("No cache dir found")),
         }
     }
 
     fn get_data_dir(&self) -> Result<PathBuf> {
-        if let Some(dirs) = &self.dirs {
-            Ok(PathBuf::from(dirs.data_dir()))
-        } else {
-            Err(anyhow!("Data dir not found"))
+        match &self.dirs {
+            Some(dirs) => Ok(PathBuf::from(dirs.data_dir())),
+            None => Err(anyhow!("No data dir found")),
         }
     }
 
     fn get_current_version_dir(&self) -> Result<PathBuf> {
-        if let Some(dirs) = &self.dirs {
-            Ok(dirs.data_dir().join("current"))
-        } else {
-            Err(anyhow!("Current version dir not found"))
+        match &self.dirs {
+            Some(dirs) => Ok(dirs.data_dir().join("current")),
+            None => Err(anyhow!("No current dir found")),
         }
     }
 
     fn get_versions_dir(&self) -> Result<PathBuf> {
-        if let Some(dirs) = &self.dirs {
-            Ok(dirs.data_dir().join("versions"))
-        } else {
-            Err(anyhow!("Versions dir not found"))
+        match &self.dirs {
+            Some(dirs) => Ok(dirs.data_dir().join("versions")),
+            None => Err(anyhow!("No versions dir found")),
         }
     }
 }

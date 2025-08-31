@@ -7,8 +7,7 @@ use std::{fs, io::Write};
 use std::path::PathBuf;
 use std::thread::spawn;
 use crate::storage::Storage;
-
-type BoxError = Box<dyn std::error::Error>;
+use crate::types::BoxError;
 
 pub fn build_cache(storage: &impl Storage) -> Result<(), BoxError> {
     let cache_dir = storage.get_cache_dir()?;

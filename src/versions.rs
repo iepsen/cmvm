@@ -3,6 +3,7 @@ use crate::{cache, package, platform};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use crate::storage::{Storage};
+use crate::types::BoxError;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, Ord, PartialEq, PartialOrd)]
 pub struct Asset {
@@ -26,7 +27,7 @@ impl Version {
         self.tag_name.replace("v", "")
     }
 
-    pub fn from_raw_value(raw_value: Value) -> Result<Version, Box<dyn std::error::Error>> {
+    pub fn from_raw_value(raw_value: Value) -> Result<Version, BoxError> {
         let version: Version = serde_json::from_value(raw_value)?;
 
         Ok(Self {
@@ -39,7 +40,7 @@ impl Version {
         })
     }
 
-    pub fn r#use(&mut self, storage: &impl Storage) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn r#use(&mut self, storage: &impl Storage) -> Result<(), BoxError> {
         let current_version_dir = storage.get_current_version_dir()?;
         let versions_dir = storage.get_versions_dir()?;
 
@@ -55,7 +56,7 @@ impl Version {
         Ok(())
     }
 
-    pub fn list(storage: &impl Storage) -> Result<String, Box<dyn std::error::Error>> {
+    pub fn list(storage: &impl Storage) -> Result<String, BoxError> {
         let current_version_dir = storage.get_current_version_dir()?;
         let versions_dir = storage.get_versions_dir()?;
         let versions = cache::ls(&versions_dir)?;
@@ -78,7 +79,7 @@ impl Version {
         Ok(mapped_versions.join("\n"))
     }
 
-    pub fn list_remote(storage: &impl Storage) -> Result<String, Box<dyn std::error::Error>> {
+    pub fn list_remote(storage: &impl Storage) -> Result<String, BoxError> {
         let cache_dir = storage.get_cache_dir()?;
         let mut versions: Vec<Version> = Vec::new();
         let releases = cache::open_file(cache_dir.join(RELEASES_FILE_NAME))?;
