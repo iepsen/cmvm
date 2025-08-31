@@ -1,10 +1,11 @@
 use crate::{package, platform::is_supported_platform, releases, versions::Version};
 use crate::storage::{Storage};
+use crate::types::BoxError;
 
 pub struct Commands {}
 
 impl Commands {
-    pub fn install_version(v: &String, storage: &impl Storage) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn install_version(v: &String, storage: &impl Storage) -> Result<(),        BoxError> {
         releases::build_cache(storage)?;
 
         let versions_dir = storage.get_versions_dir()?;
@@ -42,7 +43,7 @@ impl Commands {
         Ok(())
     }
 
-    pub fn uninstall_version(v: &String, storage: &impl Storage) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn uninstall_version(v: &String, storage: &impl Storage) -> Result<(), BoxError> {
         match releases::delete_cache_release(v, storage) {
             Ok(()) => println!("[cmvm] Version {} uninstalled successfully.", v),
             Err(e) => println!("[cmvm] Version {} is not installed. {}", v, e),
@@ -50,7 +51,7 @@ impl Commands {
         Ok(())
     }
 
-    pub fn list_remote_versions(storage: &impl Storage) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn list_remote_versions(storage: &impl Storage) -> Result<(), BoxError> {
         releases::build_cache(storage)?;
 
         println!("[cmvm] List of available versions to install:");
@@ -61,7 +62,7 @@ impl Commands {
         Ok(())
     }
 
-    pub fn list_versions(storage: &impl Storage) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn list_versions(storage: &impl Storage) -> Result<(), BoxError> {
         match Version::list(storage) {
             Ok(versions) => {
                 if versions.len() > 0 {
@@ -77,7 +78,7 @@ impl Commands {
         Ok(())
     }
 
-    pub fn use_version(v: &str, storage: &impl Storage) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn use_version(v: &str, storage: &impl Storage) -> Result<(), BoxError> {
         if let Some(mut version) = releases::get_release(&v.trim().to_string(), storage)? {
             match version.r#use(storage) {
                 Ok(_) => println!("[cmvm] Version {} set as default.", version.get_tag_name()),
@@ -93,7 +94,7 @@ impl Commands {
         Ok(())
     }
 
-    pub fn display_shell_instructions(storage: &impl Storage) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn display_shell_instructions(storage: &impl Storage) -> Result<(), BoxError> {
         let current_version_dir = storage.get_current_version_dir()?;
 
         println!(
