@@ -50,24 +50,12 @@ fn main() -> Result<(), BoxError> {
     cache::bootstrap(&storage)?;
 
     match Cli::parse().command {
-        CliCommands::Install { v } => {
-            Commands::install_version(&v, &storage)?;
-        }
-        CliCommands::Uninstall { v } => {
-            Commands::uninstall_version(&v, &storage)?;
-        }
-        CliCommands::Use { v } => {
-            Commands::use_version(&v, &storage)?;
-        }
-        CliCommands::List => {
-            Commands::list_versions(&storage)?;
-        }
-        CliCommands::ListRemote => {
-            Commands::list_remote_versions(&storage)?;
-        }
-        CliCommands::Shell => {
-            Commands::display_shell_instructions(&storage)?;
-        }
+        CliCommands::Install { v } => Commands::install_version(&v, &storage)?,
+        CliCommands::Uninstall { v } => Commands::uninstall_version(&v, &storage)?,
+        CliCommands::Use { v } => Commands::use_version(&v, &storage)?,
+        CliCommands::List => Commands::list_versions(&storage)?,
+        CliCommands::ListRemote => Commands::list_remote_versions(&storage)?,
+        CliCommands::Shell => Commands::display_shell_instructions(&storage)?
     }
     Ok(())
 }

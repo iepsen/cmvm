@@ -51,7 +51,6 @@ pub fn delete(path: &Path) -> Result<(), BoxError> {
         true => fs::remove_dir_all(path)?,
         false => fs::remove_file(path)?,
     }
-
     Ok(())
 }
 

@@ -31,9 +31,7 @@ impl Commands {
                     println!("[cmvm] Done.");
                 }
                 Err(e) => println!(
-                    "[cmvm] Error while installing version {}: {}",
-                    version.get_tag_name(),
-                    e
+                    "[cmvm] Error while installing version {}: {}", version.get_tag_name(), e
                 ),
             }
         } else {
