@@ -152,8 +152,7 @@ mod tests {
     fn test_releases() {
         let cache_dir = env::temp_dir().join("cmvm_test_releases");
         cache::create_dir(cache_dir.as_path()).unwrap();
-        let cache_file =
-            cache::create_file(&cache_dir.join(RELEASES_FILE_NAME));
+        let cache_file = cache::create_file(&cache_dir.join(RELEASES_FILE_NAME));
 
         let raw_release = json!([
             {
@@ -193,8 +192,7 @@ mod tests {
     fn test_releases_is_rc() {
         let cache_dir = env::temp_dir().join("cmvm_test_releases_is_rc");
         cache::create_dir(cache_dir.as_path()).unwrap();
-        let cache_file =
-            cache::create_file(&cache_dir.join(RELEASES_FILE_NAME));
+        let cache_file = cache::create_file(&cache_dir.join(RELEASES_FILE_NAME));
 
         let raw_release = json!([
             {
@@ -247,8 +245,7 @@ mod tests {
 
     fn write_releases_cache(cache_dir: &std::path::Path, raw_release: &serde_json::Value) {
         cache::create_dir(cache_dir).unwrap();
-        let mut cache_file =
-            cache::create_file(&cache_dir.join(RELEASES_FILE_NAME)).unwrap();
+        let mut cache_file = cache::create_file(&cache_dir.join(RELEASES_FILE_NAME)).unwrap();
         cache_file
             .write_all(raw_release.to_string().as_bytes())
             .unwrap();
