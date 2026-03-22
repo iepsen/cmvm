@@ -4,25 +4,18 @@ use std::path::{Path, PathBuf};
 use crate::storage::Storage;
 use crate::types::BoxError;
 
+fn ensure_dir_exists(path: &Path) -> Result<(), BoxError> {
+    if !path.exists() {
+        fs::create_dir(path)?;
+        println!("[cmvm] Creating {}", path.display());
+    }
+    Ok(())
+}
+
 pub fn bootstrap(storage: &impl Storage) -> Result<(), BoxError> {
-    let data_dir = storage.get_data_dir()?;
-    let cache_dir = storage.get_cache_dir()?;
-    let versions_dir = storage.get_versions_dir()?;
-    if !data_dir.exists() {
-        fs::create_dir(data_dir.as_path())?;
-        println!("[cmvm] Creating {}", data_dir.display());
-    }
-
-    if !versions_dir.exists() {
-        fs::create_dir(versions_dir.as_path())?;
-        println!("[cmvm] Creating {}", versions_dir.display());
-    }
-
-    if !cache_dir.exists() {
-        fs::create_dir(cache_dir.as_path())?;
-        println!("[cmvm] Creating {}", cache_dir.display());
-    }
-
+    ensure_dir_exists(storage.get_data_dir()?.as_path())?;
+    ensure_dir_exists(storage.get_versions_dir()?.as_path())?;
+    ensure_dir_exists(storage.get_cache_dir()?.as_path())?;
     Ok(())
 }
 
