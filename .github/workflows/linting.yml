@@ -1,4 +1,4 @@
-name: ci
+name: linting
 
 on:
   push:
@@ -13,12 +13,8 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build:
-
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+  lint:
+    runs-on: ubuntu-latest
 
     steps:
     - uses: actions/checkout@v4
@@ -35,13 +31,9 @@ jobs:
           ~/.cargo/registry/cache/
           ~/.cargo/git/db/
           target/
-        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-        restore-keys: ${{ runner.os }}-cargo-
+        key: ubuntu-latest-cargo-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: ubuntu-latest-cargo-
     - name: Check formatting
       run: cargo fmt --all -- --check
-    - name: Lint with clippy
+    - name: Lint with clippy (lib and bin targets)
       run: cargo clippy --all-targets --all-features -- -D warnings
-    - name: Build
-      run: cargo build --verbose
-    - name: Run tests
-      run: cargo test --verbose
