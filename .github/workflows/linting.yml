@@ -14,7 +14,10 @@ env:
 
 jobs:
   lint:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
 
     steps:
     - uses: actions/checkout@v4
@@ -31,8 +34,8 @@ jobs:
           ~/.cargo/registry/cache/
           ~/.cargo/git/db/
           target/
-        key: ubuntu-latest-cargo-${{ hashFiles('**/Cargo.lock') }}
-        restore-keys: ubuntu-latest-cargo-
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: ${{ runner.os }}-cargo-
     - name: Check formatting
       run: cargo fmt --all -- --check
     - name: Lint with clippy (lib and bin targets)
