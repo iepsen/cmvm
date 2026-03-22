@@ -125,3 +125,103 @@ fn clean(tag_name: &String, storage: &impl Storage) -> Result<()> {
     println!("[cmvm] Cleaning cache.");
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::versions::{Asset, Version};
+
+    fn make_asset(name: &str, content_type: &str) -> Asset {
+        Asset {
+            name: name.to_string(),
+            content_type: content_type.to_string(),
+            browser_download_url: "https://fake-url".to_string(),
+        }
+    }
+
+    fn make_version(assets: Vec<Asset>) -> Version {
+        Version {
+            major: Some(3),
+            minor: Some(22),
+            patch: Some(0),
+            prerelease: Some(false),
+            tag_name: "v3.22.0".to_string(),
+            assets,
+        }
+    }
+
+    #[test]
+    #[cfg(target_os = "linux")]
+    fn test_filter_platform_assets_matches_linux_x86_64_lowercase() {
+        let assets = vec![make_asset(
+            "cmake-3.22.0-linux-x86_64.tar.gz",
+            "application/gzip",
+        )];
+        let version = make_version(assets);
+        let filtered = filter_platform_assets(&version);
+        assert_eq!(filtered.len(), 1);
+        assert_eq!(filtered[0].name, "cmake-3.22.0-linux-x86_64.tar.gz");
+    }
+
+    #[test]
+    #[cfg(target_os = "linux")]
+    fn test_filter_platform_assets_matches_linux_x86_64_uppercase() {
+        let assets = vec![make_asset(
+            "cmake-3.22.0-Linux-x86_64.tar.gz",
+            "application/gzip",
+        )];
+        let version = make_version(assets);
+        let filtered = filter_platform_assets(&version);
+        assert_eq!(filtered.len(), 1);
+    }
+
+    #[test]
+    #[cfg(target_os = "linux")]
+    fn test_filter_platform_assets_excludes_wrong_content_type() {
+        let assets = vec![make_asset(
+            "cmake-3.22.0-linux-x86_64.tar.gz",
+            "application/octet-stream",
+        )];
+        let version = make_version(assets);
+        let filtered = filter_platform_assets(&version);
+        assert_eq!(filtered.len(), 0);
+    }
+
+    #[test]
+    #[cfg(target_os = "linux")]
+    fn test_filter_platform_assets_excludes_non_linux_assets() {
+        let assets = vec![
+            make_asset("cmake-3.22.0-macos-universal.tar.gz", "application/gzip"),
+            make_asset("cmake-3.22.0-windows-x86_64.zip", "application/zip"),
+        ];
+        let version = make_version(assets);
+        let filtered = filter_platform_assets(&version);
+        assert_eq!(filtered.len(), 0);
+    }
+
+    #[test]
+    #[cfg(target_os = "linux")]
+    fn test_filter_platform_assets_returns_only_matching_from_mixed_list() {
+        let assets = vec![
+            make_asset("cmake-3.22.0-linux-x86_64.tar.gz", "application/gzip"),
+            make_asset("cmake-3.22.0-macos-universal.tar.gz", "application/gzip"),
+            make_asset("cmake-3.22.0-windows-x86_64.zip", "application/zip"),
+        ];
+        let version = make_version(assets);
+        let filtered = filter_platform_assets(&version);
+        assert_eq!(filtered.len(), 1);
+        assert_eq!(filtered[0].name, "cmake-3.22.0-linux-x86_64.tar.gz");
+    }
+
+    #[test]
+    #[cfg(target_os = "macos")]
+    fn test_filter_platform_assets_matches_macos_asset() {
+        let assets = vec![make_asset(
+            "cmake-3.22.0-macos-universal.tar.gz",
+            "application/gzip",
+        )];
+        let version = make_version(assets);
+        let filtered = filter_platform_assets(&version);
+        assert_eq!(filtered.len(), 1);
+    }
+}
