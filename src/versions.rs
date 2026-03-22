@@ -223,10 +223,12 @@ mod test {
         assert_eq!(version.is_rc(), true);
     }
 
+    #[cfg(target_os = "linux")]
     struct MockStorage {
         cache_dir: std::path::PathBuf,
     }
 
+    #[cfg(target_os = "linux")]
     impl Storage for MockStorage {
         fn get_cache_dir(&self) -> anyhow::Result<std::path::PathBuf> {
             Ok(self.cache_dir.clone())
@@ -242,6 +244,7 @@ mod test {
         }
     }
 
+    #[cfg(target_os = "linux")]
     fn write_releases(cache_dir: &std::path::Path, raw: &serde_json::Value) {
         cache::create_dir(cache_dir).unwrap();
         let mut f = cache::create_file(
