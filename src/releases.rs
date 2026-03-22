@@ -1,3 +1,4 @@
+use anyhow::{bail, Result};
 use crate::constants::{BASE_URL, RELEASES_FILE_NAME};
 use crate::http;
 use crate::versions::Version;
@@ -7,9 +8,8 @@ use std::{fs, io::Write};
 use std::path::PathBuf;
 use std::thread::spawn;
 use crate::storage::Storage;
-use crate::types::BoxError;
 
-pub fn build_cache(storage: &impl Storage) -> Result<(), BoxError> {
+pub fn build_cache(storage: &impl Storage) -> Result<()> {
     let cache_dir = storage.get_cache_dir()?;
     let data_dir = storage.get_data_dir()?;
 
@@ -31,7 +31,7 @@ pub fn build_cache(storage: &impl Storage) -> Result<(), BoxError> {
     Ok(())
 }
 
-pub fn get_release(version: &String, storage: &impl Storage) -> Result<Option<Version>, BoxError> {
+pub fn get_release(version: &String, storage: &impl Storage) -> Result<Option<Version>> {
     let releases = Version::all_from_cache(storage)?;
     let release = releases.iter().find(|v| &v.get_tag_name() == version);
 
@@ -45,7 +45,7 @@ pub fn get_release(version: &String, storage: &impl Storage) -> Result<Option<Ve
     }
 }
 
-pub fn delete_cache_release(version: &String, storage: &impl Storage) -> Result<(), BoxError> {
+pub fn delete_cache_release(version: &String, storage: &impl Storage) -> Result<()> {
     let versions_dir = storage.get_versions_dir()?;
     let current_version_dir = storage.get_current_version_dir()?;
     if let Some(release) = get_release(version, storage)? {
@@ -59,13 +59,13 @@ pub fn delete_cache_release(version: &String, storage: &impl Storage) -> Result<
     Ok(())
 }
 
-fn cache_releases(cache_dir: PathBuf, data_dir: PathBuf, page: Option<i32>) -> Result<(), BoxError> {
+fn cache_releases(cache_dir: PathBuf, data_dir: PathBuf, page: Option<i32>) -> Result<()> {
     let current_page = page.unwrap_or(1);
     let first_page = current_page == 1;
     let mut response = http::get(format!("{}?page={}", BASE_URL, current_page).as_str())?;
 
     if !response.status().is_success() {
-        Err("[cmvm] Something went wrong")?;
+        bail!("[cmvm] Something went wrong");
     }
 
     let current_page_file = cache_dir.join(format!("{}.json", current_page));
@@ -89,7 +89,7 @@ fn cache_releases(cache_dir: PathBuf, data_dir: PathBuf, page: Option<i32>) -> R
     Ok(())
 }
 
-fn merge(cache_dir: PathBuf, data_dir: PathBuf, pages: i32) -> Result<(), BoxError> {
+fn merge(cache_dir: PathBuf, data_dir: PathBuf, pages: i32) -> Result<()> {
     let mut releases: Vec<Value> = Vec::new();
 
     if cache_dir.join(RELEASES_FILE_NAME).exists() {
@@ -120,7 +120,7 @@ fn merge(cache_dir: PathBuf, data_dir: PathBuf, pages: i32) -> Result<(), BoxErr
     Ok(())
 }
 
-fn get_number_of_pages(link_header: &str) -> Result<i32, BoxError> {
+fn get_number_of_pages(link_header: &str) -> Result<i32> {
     let mut last_page = 1;
     let parsed_link_header = parse_link_header::parse(link_header)?;
     let last_link = parsed_link_header.get(&Some("last".to_string()));

@@ -9,11 +9,10 @@ mod package;
 mod platform;
 mod releases;
 mod versions;
-mod types;
 
+use anyhow::Result;
 use commands::Commands;
 use crate::storage::StorageImpl;
-use crate::types::BoxError;
 
 #[derive(Parser)]
 #[clap(version, about = "cmake version manager")]
@@ -44,7 +43,7 @@ enum CliCommands {
     Shell,
 }
 
-fn main() -> Result<(), BoxError> {
+fn main() -> Result<()> {
     let storage = StorageImpl::default();
 
     cache::bootstrap(&storage)?;

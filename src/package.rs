@@ -1,3 +1,4 @@
+use anyhow::{bail, Result};
 use flate2::read::GzDecoder;
 use std::fs;
 use tar::Archive;
@@ -7,13 +8,12 @@ use crate::{cache, platform};
 use crate::{http};
 use fs_extra::dir;
 use crate::storage::Storage;
-use crate::types::BoxError;
 
-pub fn get_cmake_release(version: &Version, storage: &impl Storage) -> Result<(), BoxError> {
+pub fn get_cmake_release(version: &Version, storage: &impl Storage) -> Result<()> {
     let assets = filter_platform_assets(&version);
 
     if assets.len() == 0 {
-        Err("[cmvm] No asset found.")?;
+        bail!("[cmvm] No asset found.");
     }
 
     let asset = assets.first();
@@ -48,7 +48,7 @@ pub fn filter_platform_assets(version: &Version) -> Vec<&Asset> {
         .collect()
 }
 
-fn download(tag_name: &String, asset: &Asset, storage: &impl Storage) -> Result<(), BoxError> {
+fn download(tag_name: &String, asset: &Asset, storage: &impl Storage) -> Result<()> {
     let cache_dir = storage.get_cache_dir()?;
     let data_dir = storage.get_data_dir()?;
     let version_dir_path = cache_dir.join(tag_name);
@@ -68,7 +68,7 @@ fn download(tag_name: &String, asset: &Asset, storage: &impl Storage) -> Result<
     Ok(())
 }
 
-fn uncompress(tag_name: &String, asset: &Asset, storage: &impl Storage) -> Result<(), BoxError> {
+fn uncompress(tag_name: &String, asset: &Asset, storage: &impl Storage) -> Result<()> {
     let cache_dir = storage.get_cache_dir()?;
     let compressed_file = fs::read(cache_dir.join(tag_name).join(&asset.name))?;
 
@@ -81,7 +81,7 @@ fn uncompress(tag_name: &String, asset: &Asset, storage: &impl Storage) -> Resul
     Ok(())
 }
 
-fn copy(tag_name: &String, asset: &Asset, storage: &impl Storage) -> Result<(), BoxError> {
+fn copy(tag_name: &String, asset: &Asset, storage: &impl Storage) -> Result<()> {
     let cache_dir = storage.get_cache_dir()?;
     let versions_dir = storage.get_versions_dir()?;
     let base_path = &cache_dir
@@ -119,7 +119,7 @@ fn copy(tag_name: &String, asset: &Asset, storage: &impl Storage) -> Result<(), 
     Ok(())
 }
 
-fn clean(tag_name: &String, storage: &impl Storage) -> Result<(), BoxError> {
+fn clean(tag_name: &String, storage: &impl Storage) -> Result<()> {
     let cache_dir = storage.get_cache_dir()?;
     cache::delete(&cache_dir.join(tag_name))?;
     println!("[cmvm] Cleaning cache.");
