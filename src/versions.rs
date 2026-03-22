@@ -224,4 +224,113 @@ mod test {
         assert_eq!(version.prerelease, Some(true));
         assert_eq!(version.is_rc(), true);
     }
+
+    struct MockStorage {
+        cache_dir: std::path::PathBuf,
+    }
+
+    impl Storage for MockStorage {
+        fn get_cache_dir(&self) -> anyhow::Result<std::path::PathBuf> {
+            Ok(self.cache_dir.clone())
+        }
+        fn get_data_dir(&self) -> anyhow::Result<std::path::PathBuf> {
+            Ok(self.cache_dir.clone())
+        }
+        fn get_current_version_dir(&self) -> anyhow::Result<std::path::PathBuf> {
+            Ok(self.cache_dir.join("current"))
+        }
+        fn get_versions_dir(&self) -> anyhow::Result<std::path::PathBuf> {
+            Ok(self.cache_dir.join("versions"))
+        }
+    }
+
+    fn write_releases(cache_dir: &std::path::Path, raw: &serde_json::Value) {
+        cache::create_dir(cache_dir).unwrap();
+        let mut f = cache::create_file(&cache_dir.join(crate::constants::RELEASES_FILE_NAME), cache_dir).unwrap();
+        use std::io::Write;
+        f.write_all(raw.to_string().as_bytes()).unwrap();
+    }
+
+    #[test]
+    #[cfg(target_os = "linux")]
+    fn test_list_remote_excludes_rc_versions() {
+        let cache_dir = std::env::temp_dir().join("cmvm_test_list_remote_rc");
+        let _ = std::fs::remove_dir_all(&cache_dir);
+        let raw = json!([
+            {
+                "assets": [{"browser_download_url": "https://fake", "content_type": "application/gzip", "name": "cmake-3.25.0-linux-x86_64.tar.gz"}],
+                "tag_name": "v3.25.0",
+                "prerelease": false
+            },
+            {
+                "assets": [{"browser_download_url": "https://fake", "content_type": "application/gzip", "name": "cmake-3.25.0-rc1-linux-x86_64.tar.gz"}],
+                "tag_name": "v3.25.0-rc1",
+                "prerelease": true
+            }
+        ]);
+        write_releases(&cache_dir, &raw);
+        let storage = MockStorage { cache_dir: cache_dir.clone() };
+        let result = Version::list_remote(&storage).unwrap();
+        let _ = std::fs::remove_dir_all(&cache_dir);
+        assert!(result.contains("3.25.0"));
+        assert!(!result.contains("3.25.0-rc1"));
+    }
+
+    #[test]
+    #[cfg(target_os = "linux")]
+    fn test_list_remote_excludes_old_major_versions() {
+        let cache_dir = std::env::temp_dir().join("cmvm_test_list_remote_major");
+        let _ = std::fs::remove_dir_all(&cache_dir);
+        let raw = json!([
+            {
+                "assets": [{"browser_download_url": "https://fake", "content_type": "application/gzip", "name": "cmake-3.20.0-linux-x86_64.tar.gz"}],
+                "tag_name": "v3.20.0",
+                "prerelease": false
+            },
+            {
+                "assets": [{"browser_download_url": "https://fake", "content_type": "application/gzip", "name": "cmake-2.8.0-linux-x86_64.tar.gz"}],
+                "tag_name": "v2.8.0",
+                "prerelease": false
+            }
+        ]);
+        write_releases(&cache_dir, &raw);
+        let storage = MockStorage { cache_dir: cache_dir.clone() };
+        let result = Version::list_remote(&storage).unwrap();
+        let _ = std::fs::remove_dir_all(&cache_dir);
+        assert!(result.contains("3.20.0"));
+        assert!(!result.contains("2.8.0"));
+    }
+
+    #[test]
+    #[cfg(target_os = "linux")]
+    fn test_list_remote_output_is_sorted() {
+        let cache_dir = std::env::temp_dir().join("cmvm_test_list_remote_sorted");
+        let _ = std::fs::remove_dir_all(&cache_dir);
+        let raw = json!([
+            {
+                "assets": [{"browser_download_url": "https://fake", "content_type": "application/gzip", "name": "cmake-3.22.0-linux-x86_64.tar.gz"}],
+                "tag_name": "v3.22.0",
+                "prerelease": false
+            },
+            {
+                "assets": [{"browser_download_url": "https://fake", "content_type": "application/gzip", "name": "cmake-3.20.0-linux-x86_64.tar.gz"}],
+                "tag_name": "v3.20.0",
+                "prerelease": false
+            },
+            {
+                "assets": [{"browser_download_url": "https://fake", "content_type": "application/gzip", "name": "cmake-3.21.0-linux-x86_64.tar.gz"}],
+                "tag_name": "v3.21.0",
+                "prerelease": false
+            }
+        ]);
+        write_releases(&cache_dir, &raw);
+        let storage = MockStorage { cache_dir: cache_dir.clone() };
+        let result = Version::list_remote(&storage).unwrap();
+        let _ = std::fs::remove_dir_all(&cache_dir);
+        let lines: Vec<&str> = result.lines().collect();
+        assert_eq!(lines.len(), 3);
+        assert!(lines[0].contains("3.20.0"));
+        assert!(lines[1].contains("3.21.0"));
+        assert!(lines[2].contains("3.22.0"));
+    }
 }
