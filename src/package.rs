@@ -3,24 +3,24 @@ use flate2::read::GzDecoder;
 use std::fs;
 use tar::Archive;
 extern crate fs_extra;
+use crate::http;
+use crate::storage::Storage;
 use crate::versions::{Asset, Version};
 use crate::{cache, platform};
-use crate::{http};
 use fs_extra::dir;
-use crate::storage::Storage;
 
 pub fn get_cmake_release(version: &Version, storage: &impl Storage) -> Result<()> {
-    let assets = filter_platform_assets(&version);
+    let assets = filter_platform_assets(version);
 
-    if assets.len() == 0 {
+    if assets.is_empty() {
         bail!("[cmvm] No asset found.");
     }
 
     let asset = assets.first();
 
     if let Some(asset) = asset {
-        download(&version.get_tag_name(), &asset, storage)?;
-        uncompress(&version.get_tag_name(), &asset, storage)?;
+        download(&version.get_tag_name(), asset, storage)?;
+        uncompress(&version.get_tag_name(), asset, storage)?;
         copy(&version.get_tag_name(), asset, storage)?;
         clean(&version.get_tag_name(), storage)?;
     }
@@ -42,8 +42,7 @@ pub fn filter_platform_assets(version: &Version) -> Vec<&Asset> {
             supported_definitions
                 .name_contains
                 .iter()
-                .find(|pattern| asset.name.contains(pattern.as_str()))
-                != None
+                .any(|pattern| asset.name.contains(pattern.as_str()))
         })
         .collect()
 }
@@ -76,7 +75,7 @@ fn uncompress(tag_name: &String, asset: &Asset, storage: &impl Storage) -> Resul
     let mut archive = Archive::new(gz);
 
     println!("[cmvm] Uncompressing {}.", asset.name);
-    archive.unpack(&cache_dir.join(tag_name))?;
+    archive.unpack(cache_dir.join(tag_name))?;
 
     Ok(())
 }
@@ -96,7 +95,7 @@ fn copy(tag_name: &String, asset: &Asset, storage: &impl Storage) -> Result<()> 
     let options = dir::CopyOptions::new();
     let mut from_paths: Vec<String> = Vec::new();
 
-    for dir in vec!["bin", "doc", "man", "share"] {
+    for dir in ["bin", "doc", "man", "share"] {
         from_paths.push(
             cmake_cache_dir
                 .join(dir)

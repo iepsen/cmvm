@@ -1,6 +1,6 @@
-use anyhow::{bail, Result};
+use crate::storage::Storage;
 use crate::{package, platform::is_supported_platform, releases, versions::Version};
-use crate::storage::{Storage};
+use anyhow::{bail, Result};
 
 pub struct Commands {}
 
@@ -11,9 +11,9 @@ impl Commands {
         let versions_dir = storage.get_versions_dir()?;
 
         if let Some(version) = releases::get_release(&v.trim().to_string(), storage)? {
-            if versions_dir.join(&version.get_tag_name()).exists() {
+            if versions_dir.join(version.get_tag_name()).exists() {
                 println!("[cmvm] Version {} already installed.", v);
-                Commands::use_version(&v, storage)?;
+                Commands::use_version(v, storage)?;
                 return Ok(());
             }
 
@@ -27,11 +27,13 @@ impl Commands {
                         "[cmvm] Version {} installed successfully.",
                         &version.get_tag_name()
                     );
-                    Commands::use_version(&v, storage)?;
+                    Commands::use_version(v, storage)?;
                     println!("[cmvm] Done.");
                 }
                 Err(e) => println!(
-                    "[cmvm] Error while installing version {}: {}", version.get_tag_name(), e
+                    "[cmvm] Error while installing version {}: {}",
+                    version.get_tag_name(),
+                    e
                 ),
             }
         } else {
@@ -63,7 +65,7 @@ impl Commands {
     pub fn list_versions(storage: &impl Storage) -> Result<()> {
         match Version::list(storage) {
             Ok(versions) => {
-                if versions.len() > 0 {
+                if !versions.is_empty() {
                     println!("[cmvm] Installed versions:");
                     println!("{}", versions);
                 } else {
@@ -96,15 +98,8 @@ impl Commands {
         let current_version_dir = storage.get_current_version_dir()?;
 
         println!(
-            "[cmvm] {} {} {} {}\n\n {}",
-            "When `cmvm use <version>` is invoked, it changes the `current`",
-            "symbolic link to the right cmake binary path. As cmvm doesn't",
-            "manage the `current` path in the system, it requires to",
-            "manually add it to the $PATH:",
-            format!(
-                "export PATH=\"{}/bin:$PATH\"",
-                &current_version_dir.to_string_lossy()
-            )
+            "[cmvm] When `cmvm use <version>` is invoked, it changes the `current` symbolic link to the right cmake binary path. As cmvm doesn't manage the `current` path in the system, it requires to manually add it to the $PATH:\n\n export PATH=\"{}/bin:$PATH\"",
+            current_version_dir.to_string_lossy()
         );
 
         Ok(())

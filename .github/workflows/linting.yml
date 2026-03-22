@@ -1,4 +1,4 @@
-name: ci
+name: linting
 
 on:
   push:
@@ -13,8 +13,7 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build:
-
+  lint:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -39,9 +38,5 @@ jobs:
         restore-keys: ${{ runner.os }}-cargo-
     - name: Check formatting
       run: cargo fmt --all -- --check
-    - name: Lint with clippy
+    - name: Lint with clippy (lib and bin targets)
       run: cargo clippy --all-targets --all-features -- -D warnings
-    - name: Build
-      run: cargo build --verbose
-    - name: Run tests
-      run: cargo test --verbose

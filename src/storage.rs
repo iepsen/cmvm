@@ -23,7 +23,9 @@ impl Default for StorageImpl {
 
 impl StorageImpl {
     fn get_project_dirs(&self) -> Result<&ProjectDirs> {
-        self.dirs.as_ref().ok_or_else(|| anyhow!("No project dirs found"))
+        self.dirs
+            .as_ref()
+            .ok_or_else(|| anyhow!("No project dirs found"))
     }
 }
 
