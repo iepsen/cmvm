@@ -1,9 +1,9 @@
+use anyhow::Result;
 use crate::constants::RELEASES_FILE_NAME;
 use crate::{cache, package, platform};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use crate::storage::{Storage};
-use crate::types::BoxError;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, Ord, PartialEq, PartialOrd)]
 pub struct Asset {
@@ -27,7 +27,7 @@ impl Version {
         self.tag_name.replace("v", "")
     }
 
-    pub fn from_raw_value(raw_value: Value) -> Result<Version, BoxError> {
+    pub fn from_raw_value(raw_value: Value) -> Result<Version> {
         let version: Version = serde_json::from_value(raw_value)?;
 
         Ok(Self {
@@ -40,7 +40,7 @@ impl Version {
         })
     }
 
-    pub fn all_from_cache(storage: &impl Storage) -> Result<Vec<Version>, BoxError> {
+    pub fn all_from_cache(storage: &impl Storage) -> Result<Vec<Version>> {
         let cache_dir = storage.get_cache_dir()?;
         let releases = cache::open_file(cache_dir.join(RELEASES_FILE_NAME))?;
         let raw_versions: Vec<Value> = serde_json::from_str(releases.as_str())?;
@@ -52,7 +52,7 @@ impl Version {
         Ok(versions)
     }
 
-    pub fn r#use(&mut self, storage: &impl Storage) -> Result<(), BoxError> {
+    pub fn r#use(&mut self, storage: &impl Storage) -> Result<()> {
         let current_version_dir = storage.get_current_version_dir()?;
         let versions_dir = storage.get_versions_dir()?;
 
@@ -68,7 +68,7 @@ impl Version {
         Ok(())
     }
 
-    pub fn list(storage: &impl Storage) -> Result<String, BoxError> {
+    pub fn list(storage: &impl Storage) -> Result<String> {
         let current_version_dir = storage.get_current_version_dir()?;
         let versions_dir = storage.get_versions_dir()?;
         let versions = cache::ls(&versions_dir)?;
@@ -91,7 +91,7 @@ impl Version {
         Ok(mapped_versions.join("\n"))
     }
 
-    pub fn list_remote(storage: &impl Storage) -> Result<String, BoxError> {
+    pub fn list_remote(storage: &impl Storage) -> Result<String> {
         let mut versions: Vec<Version> = Vec::new();
 
         for version in Version::all_from_cache(storage)? {
