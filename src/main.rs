@@ -2,17 +2,17 @@ use clap::{Parser, Subcommand};
 
 mod cache;
 mod commands;
-mod storage;
 mod constants;
 mod http;
 mod package;
 mod platform;
 mod releases;
+mod storage;
 mod versions;
 
+use crate::storage::StorageImpl;
 use anyhow::Result;
 use commands::Commands;
-use crate::storage::StorageImpl;
 
 #[derive(Parser)]
 #[clap(version, about = "cmake version manager")]
@@ -54,7 +54,7 @@ fn main() -> Result<()> {
         CliCommands::Use { v } => Commands::use_version(&v, &storage)?,
         CliCommands::List => Commands::list_versions(&storage)?,
         CliCommands::ListRemote => Commands::list_remote_versions(&storage)?,
-        CliCommands::Shell => Commands::display_shell_instructions(&storage)?
+        CliCommands::Shell => Commands::display_shell_instructions(&storage)?,
     }
     Ok(())
 }

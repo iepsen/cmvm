@@ -1,9 +1,9 @@
-use anyhow::Result;
 use crate::constants::RELEASES_FILE_NAME;
+use crate::storage::Storage;
 use crate::{cache, package, platform};
+use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use crate::storage::{Storage};
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, Ord, PartialEq, PartialOrd)]
 pub struct Asset {
@@ -31,9 +31,9 @@ impl Version {
         let version: Version = serde_json::from_value(raw_value)?;
 
         Ok(Self {
-            major: Some(version.get_version_vec().get(0).unwrap().clone()),
-            minor: Some(version.get_version_vec().get(1).unwrap().clone()),
-            patch: Some(version.get_version_vec().get(2).unwrap().clone()),
+            major: Some(*version.get_version_vec().first().unwrap()),
+            minor: Some(*version.get_version_vec().get(1).unwrap()),
+            patch: Some(*version.get_version_vec().get(2).unwrap()),
             prerelease: version.prerelease,
             tag_name: version.tag_name,
             assets: version.assets,
@@ -103,7 +103,7 @@ impl Version {
             let supported_definition = platform::supported_definition();
 
             // skip releases that doesn't match the required major version
-            if &version.major.unwrap() < &supported_definition.major_version_required {
+            if version.major.unwrap() < supported_definition.major_version_required {
                 continue;
             }
 
@@ -125,11 +125,9 @@ impl Version {
     }
 
     fn get_version_vec(&self) -> Vec<i32> {
-        self
-            .get_tag_name()
+        self.get_tag_name()
             .replace("-", ".")
             .split('.')
-            .into_iter()
             .map(|s| s.parse::<i32>().unwrap_or(0))
             .collect()
     }
@@ -246,7 +244,11 @@ mod test {
 
     fn write_releases(cache_dir: &std::path::Path, raw: &serde_json::Value) {
         cache::create_dir(cache_dir).unwrap();
-        let mut f = cache::create_file(&cache_dir.join(crate::constants::RELEASES_FILE_NAME), cache_dir).unwrap();
+        let mut f = cache::create_file(
+            &cache_dir.join(crate::constants::RELEASES_FILE_NAME),
+            cache_dir,
+        )
+        .unwrap();
         use std::io::Write;
         f.write_all(raw.to_string().as_bytes()).unwrap();
     }
@@ -269,7 +271,9 @@ mod test {
             }
         ]);
         write_releases(&cache_dir, &raw);
-        let storage = MockStorage { cache_dir: cache_dir.clone() };
+        let storage = MockStorage {
+            cache_dir: cache_dir.clone(),
+        };
         let result = Version::list_remote(&storage).unwrap();
         let _ = std::fs::remove_dir_all(&cache_dir);
         assert!(result.contains("3.25.0"));
@@ -294,7 +298,9 @@ mod test {
             }
         ]);
         write_releases(&cache_dir, &raw);
-        let storage = MockStorage { cache_dir: cache_dir.clone() };
+        let storage = MockStorage {
+            cache_dir: cache_dir.clone(),
+        };
         let result = Version::list_remote(&storage).unwrap();
         let _ = std::fs::remove_dir_all(&cache_dir);
         assert!(result.contains("3.20.0"));
@@ -324,7 +330,9 @@ mod test {
             }
         ]);
         write_releases(&cache_dir, &raw);
-        let storage = MockStorage { cache_dir: cache_dir.clone() };
+        let storage = MockStorage {
+            cache_dir: cache_dir.clone(),
+        };
         let result = Version::list_remote(&storage).unwrap();
         let _ = std::fs::remove_dir_all(&cache_dir);
         let lines: Vec<&str> = result.lines().collect();
