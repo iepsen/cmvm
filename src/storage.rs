@@ -21,32 +21,26 @@ impl Default for StorageImpl {
     }
 }
 
+impl StorageImpl {
+    fn get_project_dirs(&self) -> Result<&ProjectDirs> {
+        self.dirs.as_ref().ok_or_else(|| anyhow!("No project dirs found"))
+    }
+}
+
 impl Storage for StorageImpl {
     fn get_cache_dir(&self) -> Result<PathBuf> {
-        match &self.dirs {
-            Some(dirs) => Ok(PathBuf::from(dirs.cache_dir())),
-            None => Err(anyhow!("No cache dir found")),
-        }
+        Ok(PathBuf::from(self.get_project_dirs()?.cache_dir()))
     }
 
     fn get_data_dir(&self) -> Result<PathBuf> {
-        match &self.dirs {
-            Some(dirs) => Ok(PathBuf::from(dirs.data_dir())),
-            None => Err(anyhow!("No data dir found")),
-        }
+        Ok(PathBuf::from(self.get_project_dirs()?.data_dir()))
     }
 
     fn get_current_version_dir(&self) -> Result<PathBuf> {
-        match &self.dirs {
-            Some(dirs) => Ok(dirs.data_dir().join("current")),
-            None => Err(anyhow!("No current dir found")),
-        }
+        Ok(self.get_project_dirs()?.data_dir().join("current"))
     }
 
     fn get_versions_dir(&self) -> Result<PathBuf> {
-        match &self.dirs {
-            Some(dirs) => Ok(dirs.data_dir().join("versions")),
-            None => Err(anyhow!("No versions dir found")),
-        }
+        Ok(self.get_project_dirs()?.data_dir().join("versions"))
     }
 }

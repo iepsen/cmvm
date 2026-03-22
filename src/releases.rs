@@ -32,8 +32,7 @@ pub fn build_cache(storage: &impl Storage) -> Result<(), BoxError> {
 }
 
 pub fn get_release(version: &String, storage: &impl Storage) -> Result<Option<Version>, BoxError> {
-    let cache_dir = storage.get_cache_dir()?;
-    let releases = get_releases(cache_dir)?;
+    let releases = Version::all_from_cache(storage)?;
     let release = releases.iter().find(|v| &v.get_tag_name() == version);
 
     match release {
@@ -131,25 +130,32 @@ fn get_number_of_pages(link_header: &str) -> Result<i32, BoxError> {
     Ok(last_page)
 }
 
-fn get_releases(cache_dir: PathBuf) -> Result<Vec<Version>, BoxError> {
-    let releases = cache::open_file(cache_dir.join(RELEASES_FILE_NAME));
-    let raw_versions: Vec<Value> = serde_json::from_str(releases.unwrap().as_str())?;
-
-    let versions = raw_versions
-        .into_iter()
-        .filter(|rv| rv["tag_name"].as_str().unwrap().len() > 0)
-        .map(|v| Version::from_raw_value(v))
-        .flatten()
-        .collect();
-
-    Ok(versions)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::env;
+    use std::path::PathBuf;
+    use anyhow::Result;
     use serde_json::json;
+
+    struct MockStorage {
+        cache_dir: PathBuf,
+    }
+
+    impl Storage for MockStorage {
+        fn get_cache_dir(&self) -> Result<PathBuf> {
+            Ok(self.cache_dir.clone())
+        }
+        fn get_data_dir(&self) -> Result<PathBuf> {
+            Ok(self.cache_dir.clone())
+        }
+        fn get_current_version_dir(&self) -> Result<PathBuf> {
+            Ok(self.cache_dir.join("current"))
+        }
+        fn get_versions_dir(&self) -> Result<PathBuf> {
+            Ok(self.cache_dir.join("versions"))
+        }
+    }
 
     #[test]
     fn test_releases() {
@@ -178,8 +184,8 @@ mod tests {
 
         cache_file.unwrap().write(raw_release.to_string().as_bytes()).ok();
 
-
-        let releases = get_releases(cache_dir.clone()).unwrap();
+        let storage = MockStorage { cache_dir: cache_dir.clone() };
+        let releases = Version::all_from_cache(&storage).unwrap();
         let release = &releases[0];
 
         cache::delete(&*cache_dir).ok();
@@ -216,8 +222,8 @@ mod tests {
 
         cache_file.unwrap().write(raw_release.clone().to_string().as_bytes()).ok();
 
-
-        let releases = get_releases(cache_dir.clone()).unwrap();
+        let storage = MockStorage { cache_dir: cache_dir.clone() };
+        let releases = Version::all_from_cache(&storage).unwrap();
         let release = &releases[0];
 
         cache::delete(&*cache_dir).ok();

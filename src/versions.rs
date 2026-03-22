@@ -40,6 +40,18 @@ impl Version {
         })
     }
 
+    pub fn all_from_cache(storage: &impl Storage) -> Result<Vec<Version>, BoxError> {
+        let cache_dir = storage.get_cache_dir()?;
+        let releases = cache::open_file(cache_dir.join(RELEASES_FILE_NAME))?;
+        let raw_versions: Vec<Value> = serde_json::from_str(releases.as_str())?;
+        let versions = raw_versions
+            .into_iter()
+            .filter(|rv| !rv["tag_name"].as_str().unwrap_or("").is_empty())
+            .flat_map(Version::from_raw_value)
+            .collect();
+        Ok(versions)
+    }
+
     pub fn r#use(&mut self, storage: &impl Storage) -> Result<(), BoxError> {
         let current_version_dir = storage.get_current_version_dir()?;
         let versions_dir = storage.get_versions_dir()?;
@@ -80,14 +92,9 @@ impl Version {
     }
 
     pub fn list_remote(storage: &impl Storage) -> Result<String, BoxError> {
-        let cache_dir = storage.get_cache_dir()?;
         let mut versions: Vec<Version> = Vec::new();
-        let releases = cache::open_file(cache_dir.join(RELEASES_FILE_NAME))?;
-        let raw_versions: Vec<Value> = serde_json::from_str(releases.as_str())?;
 
-        for raw_version in raw_versions {
-            let version = Version::from_raw_value(raw_version)?;
-
+        for version in Version::all_from_cache(storage)? {
             // skip release candidate versions
             if version.is_rc() {
                 continue;
@@ -102,7 +109,7 @@ impl Version {
 
             let assets: Vec<&Asset> = package::filter_platform_assets(&version);
 
-            if assets.len() > 0 {
+            if !assets.is_empty() {
                 versions.push(version);
             }
         }
