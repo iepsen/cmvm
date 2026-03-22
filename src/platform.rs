@@ -8,7 +8,7 @@ pub struct SupportedDefinition {
 }
 
 pub fn is_supported_platform() -> bool {
-    constants::SUPPORTED_PLATFORMS.contains(&std::env::consts::OS.to_string())
+    constants::SUPPORTED_PLATFORMS.contains(&std::env::consts::OS)
 }
 
 pub fn supported_definition() -> SupportedDefinition {
