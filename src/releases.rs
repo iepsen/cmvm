@@ -232,4 +232,74 @@ mod tests {
         assert_eq!(release.get_tag_name(), "4.1.0");
         assert_eq!(release.prerelease, Some(true));
     }
+
+    #[test]
+    fn test_get_number_of_pages_returns_last_page() {
+        let link_header = "<https://api.github.com/repos/Kitware/CMake/releases?page=2>; rel=\"next\", <https://api.github.com/repos/Kitware/CMake/releases?page=7>; rel=\"last\"";
+        let pages = get_number_of_pages(link_header).unwrap();
+        assert_eq!(pages, 7);
+    }
+
+    #[test]
+    fn test_get_number_of_pages_returns_one_when_no_last_link() {
+        let link_header = "<https://api.github.com/repos/Kitware/CMake/releases?page=1>; rel=\"prev\"";
+        let pages = get_number_of_pages(link_header).unwrap();
+        assert_eq!(pages, 1);
+    }
+
+    fn write_releases_cache(cache_dir: &std::path::Path, raw_release: &serde_json::Value) {
+        cache::create_dir(cache_dir).unwrap();
+        let mut cache_file = cache::create_file(
+            &cache_dir.join(RELEASES_FILE_NAME),
+            cache_dir,
+        ).unwrap();
+        cache_file.write(raw_release.to_string().as_bytes()).unwrap();
+    }
+
+    #[test]
+    fn test_get_release_returns_matching_version() {
+        let cache_dir = env::temp_dir().join("cmvm_test_get_release");
+        let raw_releases = json!([
+            {
+                "assets": [
+                    {
+                        "browser_download_url": "https://fake-url",
+                        "content_type": "application/gzip",
+                        "name": "cmake-3.25.0-linux-x86_64.tar.gz"
+                    }
+                ],
+                "tag_name": "v3.25.0",
+                "prerelease": false
+            }
+        ]);
+        write_releases_cache(&cache_dir, &raw_releases);
+
+        let storage = MockStorage { cache_dir: cache_dir.clone() };
+        let release = get_release(&"3.25.0".to_string(), &storage).unwrap();
+
+        cache::delete(&*cache_dir).ok();
+
+        assert!(release.is_some());
+        assert_eq!(release.unwrap().get_tag_name(), "3.25.0");
+    }
+
+    #[test]
+    fn test_get_release_returns_none_when_not_found() {
+        let cache_dir = env::temp_dir().join("cmvm_test_get_release_none");
+        let raw_releases = json!([
+            {
+                "assets": [],
+                "tag_name": "v3.25.0",
+                "prerelease": false
+            }
+        ]);
+        write_releases_cache(&cache_dir, &raw_releases);
+
+        let storage = MockStorage { cache_dir: cache_dir.clone() };
+        let release = get_release(&"3.99.0".to_string(), &storage).unwrap();
+
+        cache::delete(&*cache_dir).ok();
+
+        assert!(release.is_none());
+    }
 }
