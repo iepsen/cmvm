@@ -1,13 +1,13 @@
-use anyhow::{bail, Result};
+use crate::cache;
 use crate::constants::{BASE_URL, RELEASES_FILE_NAME};
 use crate::http;
+use crate::storage::Storage;
 use crate::versions::Version;
-use crate::{cache};
+use anyhow::{bail, Result};
 use serde_json::Value;
-use std::{fs, io::Write};
 use std::path::PathBuf;
 use std::thread::spawn;
-use crate::storage::Storage;
+use std::{fs, io::Write};
 
 pub fn build_cache(storage: &impl Storage) -> Result<()> {
     let cache_dir = storage.get_cache_dir()?;
@@ -40,8 +40,8 @@ pub fn get_release(version: &String, storage: &impl Storage) -> Result<Option<Ve
             let mut release_found: Version = release.clone();
             release_found.tag_name = release.get_tag_name();
             Ok(Some(release_found))
-        },
-        None => Ok(None)
+        }
+        None => Ok(None),
     }
 }
 
@@ -53,7 +53,7 @@ pub fn delete_cache_release(version: &String, storage: &impl Storage) -> Result<
         if current_version_dir.read_link()? == version_path {
             cache::delete(&current_version_dir)?;
         }
-        cache::delete(&version_path.as_path())?;
+        cache::delete(version_path.as_path())?;
     }
 
     Ok(())
@@ -113,9 +113,10 @@ fn merge(cache_dir: PathBuf, data_dir: PathBuf, pages: i32) -> Result<()> {
         }
     }
 
-    let mut cache_file = cache::create_file(&cache_dir.join(RELEASES_FILE_NAME), data_dir.as_path())?;
+    let mut cache_file =
+        cache::create_file(&cache_dir.join(RELEASES_FILE_NAME), data_dir.as_path())?;
     let cache_json = serde_json::to_string(&releases)?;
-    cache_file.write(cache_json.as_bytes())?;
+    cache_file.write_all(cache_json.as_bytes())?;
 
     Ok(())
 }
@@ -133,10 +134,10 @@ fn get_number_of_pages(link_header: &str) -> Result<i32> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::env;
-    use std::path::PathBuf;
     use anyhow::Result;
     use serde_json::json;
+    use std::env;
+    use std::path::PathBuf;
 
     struct MockStorage {
         cache_dir: PathBuf,
@@ -161,10 +162,8 @@ mod tests {
     fn test_releases() {
         let cache_dir = env::temp_dir().join("cmvm_test_releases");
         cache::create_dir(cache_dir.as_path()).unwrap();
-        let cache_file = cache::create_file(
-            &cache_dir.join(RELEASES_FILE_NAME),
-            cache_dir.as_path()
-        );
+        let cache_file =
+            cache::create_file(&cache_dir.join(RELEASES_FILE_NAME), cache_dir.as_path());
 
         let raw_release = json!([
             {
@@ -182,13 +181,18 @@ mod tests {
             }
         ]);
 
-        cache_file.unwrap().write(raw_release.to_string().as_bytes()).ok();
+        cache_file
+            .unwrap()
+            .write_all(raw_release.to_string().as_bytes())
+            .ok();
 
-        let storage = MockStorage { cache_dir: cache_dir.clone() };
+        let storage = MockStorage {
+            cache_dir: cache_dir.clone(),
+        };
         let releases = Version::all_from_cache(&storage).unwrap();
         let release = &releases[0];
 
-        cache::delete(&*cache_dir).ok();
+        cache::delete(&cache_dir).ok();
 
         assert_eq!(releases.len(), 1);
         assert_eq!(release.get_tag_name(), "4.1.0");
@@ -199,10 +203,8 @@ mod tests {
     fn test_releases_is_rc() {
         let cache_dir = env::temp_dir().join("cmvm_test_releases_is_rc");
         cache::create_dir(cache_dir.as_path()).unwrap();
-        let cache_file = cache::create_file(
-            &cache_dir.join(RELEASES_FILE_NAME),
-            cache_dir.as_path()
-        );
+        let cache_file =
+            cache::create_file(&cache_dir.join(RELEASES_FILE_NAME), cache_dir.as_path());
 
         let raw_release = json!([
             {
@@ -220,13 +222,18 @@ mod tests {
             }
         ]);
 
-        cache_file.unwrap().write(raw_release.clone().to_string().as_bytes()).ok();
+        cache_file
+            .unwrap()
+            .write_all(raw_release.to_string().as_bytes())
+            .ok();
 
-        let storage = MockStorage { cache_dir: cache_dir.clone() };
+        let storage = MockStorage {
+            cache_dir: cache_dir.clone(),
+        };
         let releases = Version::all_from_cache(&storage).unwrap();
         let release = &releases[0];
 
-        cache::delete(&*cache_dir).ok();
+        cache::delete(&cache_dir).ok();
 
         assert_eq!(releases.len(), 1);
         assert_eq!(release.get_tag_name(), "4.1.0");
@@ -242,18 +249,19 @@ mod tests {
 
     #[test]
     fn test_get_number_of_pages_returns_one_when_no_last_link() {
-        let link_header = "<https://api.github.com/repos/Kitware/CMake/releases?page=1>; rel=\"prev\"";
+        let link_header =
+            "<https://api.github.com/repos/Kitware/CMake/releases?page=1>; rel=\"prev\"";
         let pages = get_number_of_pages(link_header).unwrap();
         assert_eq!(pages, 1);
     }
 
     fn write_releases_cache(cache_dir: &std::path::Path, raw_release: &serde_json::Value) {
         cache::create_dir(cache_dir).unwrap();
-        let mut cache_file = cache::create_file(
-            &cache_dir.join(RELEASES_FILE_NAME),
-            cache_dir,
-        ).unwrap();
-        cache_file.write(raw_release.to_string().as_bytes()).unwrap();
+        let mut cache_file =
+            cache::create_file(&cache_dir.join(RELEASES_FILE_NAME), cache_dir).unwrap();
+        cache_file
+            .write_all(raw_release.to_string().as_bytes())
+            .unwrap();
     }
 
     #[test]
@@ -274,10 +282,12 @@ mod tests {
         ]);
         write_releases_cache(&cache_dir, &raw_releases);
 
-        let storage = MockStorage { cache_dir: cache_dir.clone() };
+        let storage = MockStorage {
+            cache_dir: cache_dir.clone(),
+        };
         let release = get_release(&"3.25.0".to_string(), &storage).unwrap();
 
-        cache::delete(&*cache_dir).ok();
+        cache::delete(&cache_dir).ok();
 
         assert!(release.is_some());
         assert_eq!(release.unwrap().get_tag_name(), "3.25.0");
@@ -295,10 +305,12 @@ mod tests {
         ]);
         write_releases_cache(&cache_dir, &raw_releases);
 
-        let storage = MockStorage { cache_dir: cache_dir.clone() };
+        let storage = MockStorage {
+            cache_dir: cache_dir.clone(),
+        };
         let release = get_release(&"3.99.0".to_string(), &storage).unwrap();
 
-        cache::delete(&*cache_dir).ok();
+        cache::delete(&cache_dir).ok();
 
         assert!(release.is_none());
     }

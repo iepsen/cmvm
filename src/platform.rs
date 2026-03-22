@@ -7,7 +7,6 @@ pub struct SupportedDefinition {
     pub major_version_required: i32,
 }
 
-
 pub fn is_supported_platform() -> bool {
     constants::SUPPORTED_PLATFORMS.contains(&std::env::consts::OS.to_string())
 }
