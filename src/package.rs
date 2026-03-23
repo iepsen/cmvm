@@ -47,9 +47,8 @@ pub fn filter_platform_assets(version: &Version) -> Vec<&Asset> {
         .collect()
 }
 
-fn download(tag_name: &String, asset: &Asset, storage: &impl Storage) -> Result<()> {
+fn download(tag_name: &str, asset: &Asset, storage: &impl Storage) -> Result<()> {
     let cache_dir = storage.get_cache_dir()?;
-    let data_dir = storage.get_data_dir()?;
     let version_dir_path = cache_dir.join(tag_name);
 
     if version_dir_path.exists() {
@@ -61,13 +60,13 @@ fn download(tag_name: &String, asset: &Asset, storage: &impl Storage) -> Result<
     println!("[cmvm] Downloading {}.", asset.browser_download_url);
     let mut response = http::get(&asset.browser_download_url)?;
     let file_path = &cache_dir.join(tag_name).join(&asset.name);
-    let mut file = cache::create_file(file_path, data_dir.as_path())?;
+    let mut file = cache::create_file(file_path)?;
     response.copy_to(&mut file)?;
 
     Ok(())
 }
 
-fn uncompress(tag_name: &String, asset: &Asset, storage: &impl Storage) -> Result<()> {
+fn uncompress(tag_name: &str, asset: &Asset, storage: &impl Storage) -> Result<()> {
     let cache_dir = storage.get_cache_dir()?;
     let compressed_file = fs::read(cache_dir.join(tag_name).join(&asset.name))?;
 
@@ -80,7 +79,7 @@ fn uncompress(tag_name: &String, asset: &Asset, storage: &impl Storage) -> Resul
     Ok(())
 }
 
-fn copy(tag_name: &String, asset: &Asset, storage: &impl Storage) -> Result<()> {
+fn copy(tag_name: &str, asset: &Asset, storage: &impl Storage) -> Result<()> {
     let cache_dir = storage.get_cache_dir()?;
     let versions_dir = storage.get_versions_dir()?;
     let base_path = &cache_dir
@@ -118,7 +117,7 @@ fn copy(tag_name: &String, asset: &Asset, storage: &impl Storage) -> Result<()> 
     Ok(())
 }
 
-fn clean(tag_name: &String, storage: &impl Storage) -> Result<()> {
+fn clean(tag_name: &str, storage: &impl Storage) -> Result<()> {
     let cache_dir = storage.get_cache_dir()?;
     cache::delete(&cache_dir.join(tag_name))?;
     println!("[cmvm] Cleaning cache.");

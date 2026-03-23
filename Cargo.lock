@@ -168,7 +168,6 @@ dependencies = [
  "directories",
  "flate2",
  "fs_extra",
- "lazy_static",
  "parse_link_header",
  "pretty_assertions",
  "reqwest",

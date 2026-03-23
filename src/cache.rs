@@ -24,11 +24,11 @@ pub fn create_dir(path: &Path) -> Result<()> {
     Ok(())
 }
 
-pub fn create_file(path: &Path, data_dir: &Path) -> Result<fs::File> {
-    if data_dir.join(path).exists() {
-        delete(&data_dir.join(path))?;
+pub fn create_file(path: &Path) -> Result<fs::File> {
+    if path.exists() {
+        delete(path)?;
     }
-    Ok(fs::File::create(data_dir.join(path))?)
+    Ok(fs::File::create(path)?)
 }
 
 pub fn open_file(path: PathBuf) -> Result<String> {

@@ -11,19 +11,18 @@ use std::{fs, io::Write};
 
 pub fn build_cache(storage: &impl Storage) -> Result<()> {
     let cache_dir = storage.get_cache_dir()?;
-    let data_dir = storage.get_data_dir()?;
 
     match cache_dir.join(RELEASES_FILE_NAME).exists() {
         true => {
             spawn(|| {
-                if cache_releases(cache_dir, data_dir, None).is_err() {
+                if cache_releases(cache_dir, None).is_err() {
                     println!("[cmvm] Failed to fetch remote versions");
                 }
             });
         }
         false => {
             println!("[cmvm] Fetching versions for the first time...");
-            if cache_releases(cache_dir, data_dir, None).is_err() {
+            if cache_releases(cache_dir, None).is_err() {
                 println!("[cmvm] Failed to fetch remote versions");
             }
         }
@@ -31,21 +30,13 @@ pub fn build_cache(storage: &impl Storage) -> Result<()> {
     Ok(())
 }
 
-pub fn get_release(version: &String, storage: &impl Storage) -> Result<Option<Version>> {
+pub fn get_release(version: &str, storage: &impl Storage) -> Result<Option<Version>> {
     let releases = Version::all_from_cache(storage)?;
-    let release = releases.iter().find(|v| &v.get_tag_name() == version);
-
-    match release {
-        Some(release) => {
-            let mut release_found: Version = release.clone();
-            release_found.tag_name = release.get_tag_name();
-            Ok(Some(release_found))
-        }
-        None => Ok(None),
-    }
+    let release = releases.iter().find(|v| v.get_tag_name() == version);
+    Ok(release.cloned())
 }
 
-pub fn delete_cache_release(version: &String, storage: &impl Storage) -> Result<()> {
+pub fn delete_cache_release(version: &str, storage: &impl Storage) -> Result<()> {
     let versions_dir = storage.get_versions_dir()?;
     let current_version_dir = storage.get_current_version_dir()?;
     if let Some(release) = get_release(version, storage)? {
@@ -59,7 +50,7 @@ pub fn delete_cache_release(version: &String, storage: &impl Storage) -> Result<
     Ok(())
 }
 
-fn cache_releases(cache_dir: PathBuf, data_dir: PathBuf, page: Option<i32>) -> Result<()> {
+fn cache_releases(cache_dir: PathBuf, page: Option<i32>) -> Result<()> {
     let current_page = page.unwrap_or(1);
     let first_page = current_page == 1;
     let mut response = http::get(format!("{}?page={}", BASE_URL, current_page).as_str())?;
@@ -74,22 +65,22 @@ fn cache_releases(cache_dir: PathBuf, data_dir: PathBuf, page: Option<i32>) -> R
         cache::delete(&current_page_file)?;
     }
 
-    let mut file = cache::create_file(current_page_file.as_path(), data_dir.as_path())?;
+    let mut file = cache::create_file(current_page_file.as_path())?;
     response.copy_to(&mut file)?;
 
     if first_page {
         if let Some(link_header) = response.headers().get("link") {
             let pages = get_number_of_pages(link_header.to_str()?)?;
             for page in 2..=pages {
-                cache_releases(cache_dir.clone(), data_dir.clone(), Some(page))?;
+                cache_releases(cache_dir.clone(), Some(page))?;
             }
-            merge(cache_dir.clone(), data_dir, pages)?;
+            merge(cache_dir.clone(), pages)?;
         }
     }
     Ok(())
 }
 
-fn merge(cache_dir: PathBuf, data_dir: PathBuf, pages: i32) -> Result<()> {
+fn merge(cache_dir: PathBuf, pages: i32) -> Result<()> {
     let mut releases: Vec<Value> = Vec::new();
 
     if cache_dir.join(RELEASES_FILE_NAME).exists() {
@@ -113,8 +104,7 @@ fn merge(cache_dir: PathBuf, data_dir: PathBuf, pages: i32) -> Result<()> {
         }
     }
 
-    let mut cache_file =
-        cache::create_file(&cache_dir.join(RELEASES_FILE_NAME), data_dir.as_path())?;
+    let mut cache_file = cache::create_file(&cache_dir.join(RELEASES_FILE_NAME))?;
     let cache_json = serde_json::to_string(&releases)?;
     cache_file.write_all(cache_json.as_bytes())?;
 
@@ -162,8 +152,7 @@ mod tests {
     fn test_releases() {
         let cache_dir = env::temp_dir().join("cmvm_test_releases");
         cache::create_dir(cache_dir.as_path()).unwrap();
-        let cache_file =
-            cache::create_file(&cache_dir.join(RELEASES_FILE_NAME), cache_dir.as_path());
+        let cache_file = cache::create_file(&cache_dir.join(RELEASES_FILE_NAME));
 
         let raw_release = json!([
             {
@@ -203,8 +192,7 @@ mod tests {
     fn test_releases_is_rc() {
         let cache_dir = env::temp_dir().join("cmvm_test_releases_is_rc");
         cache::create_dir(cache_dir.as_path()).unwrap();
-        let cache_file =
-            cache::create_file(&cache_dir.join(RELEASES_FILE_NAME), cache_dir.as_path());
+        let cache_file = cache::create_file(&cache_dir.join(RELEASES_FILE_NAME));
 
         let raw_release = json!([
             {
@@ -257,8 +245,7 @@ mod tests {
 
     fn write_releases_cache(cache_dir: &std::path::Path, raw_release: &serde_json::Value) {
         cache::create_dir(cache_dir).unwrap();
-        let mut cache_file =
-            cache::create_file(&cache_dir.join(RELEASES_FILE_NAME), cache_dir).unwrap();
+        let mut cache_file = cache::create_file(&cache_dir.join(RELEASES_FILE_NAME)).unwrap();
         cache_file
             .write_all(raw_release.to_string().as_bytes())
             .unwrap();
@@ -285,7 +272,7 @@ mod tests {
         let storage = MockStorage {
             cache_dir: cache_dir.clone(),
         };
-        let release = get_release(&"3.25.0".to_string(), &storage).unwrap();
+        let release = get_release("3.25.0", &storage).unwrap();
 
         cache::delete(&cache_dir).ok();
 
@@ -308,7 +295,7 @@ mod tests {
         let storage = MockStorage {
             cache_dir: cache_dir.clone(),
         };
-        let release = get_release(&"3.99.0".to_string(), &storage).unwrap();
+        let release = get_release("3.99.0", &storage).unwrap();
 
         cache::delete(&cache_dir).ok();
 

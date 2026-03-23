@@ -9,7 +9,7 @@
 ```
 src/
   main.rs        – CLI entry point (clap-based argument parsing)
-  commands.rs    – Top-level command implementations
+  commands.rs    – Top-level command implementations (free functions)
   releases.rs    – Fetching and caching GitHub release metadata
   versions.rs    – Version model (parsing, listing, activation)
   package.rs     – Downloading, decompressing, and copying CMake archives
@@ -18,7 +18,6 @@ src/
   cache.rs       – Cache bootstrapping and directory helpers
   http.rs        – HTTP helpers (reqwest blocking client)
   constants.rs   – Shared constants (base URL, platform list, etc.)
-  types.rs       – Shared type aliases
 ```
 
 ## Build & Test
@@ -49,7 +48,7 @@ CI runs `cargo build --verbose` and `cargo test --verbose` on both `ubuntu-lates
 ## Adding a New Command
 
 1. Add a variant to the `CliCommands` enum in `src/main.rs` with a doc-comment that becomes the help text.
-2. Implement the corresponding method on `Commands` in `src/commands.rs`.
+2. Add a free function in `src/commands.rs`.
 3. Wire the new variant in the `match` block inside `main()`.
 4. Add unit tests in the relevant module (or in `src/commands.rs`).
 

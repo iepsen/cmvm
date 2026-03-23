@@ -10,8 +10,8 @@ cmvm is a synchronous Rust CLI application. There is no async runtime — all I/
 
 ```
 src/
-├── main.rs        – CLI entry point: argument parsing (clap), dispatches to Commands
-├── commands.rs    – High-level command implementations (install, use, list, …)
+├── main.rs        – CLI entry point: argument parsing (clap), dispatches to commands module
+├── commands.rs    – High-level command implementations (install, use, list, …) as free functions
 ├── releases.rs    – Fetching release metadata from GitHub and managing the local cache
 ├── versions.rs    – Version data model: parsing, listing, and activation (symlink)
 ├── package.rs     – Downloading, decompressing (.tar.gz), and staging CMake archives
@@ -19,8 +19,7 @@ src/
 ├── storage.rs     – Storage trait + default implementation (OS-standard directories)
 ├── cache.rs       – Low-level filesystem helpers (create/delete/open files and dirs)
 ├── http.rs        – Thin wrapper around reqwest blocking client
-├── constants.rs   – Shared constants (GitHub API base URL, releases filename, …)
-└── types.rs       – Shared type aliases
+└── constants.rs   – Shared constants (GitHub API base URL, releases filename, …)
 ```
 
 ## Request flow
@@ -29,7 +28,7 @@ Below is a simplified call flow for `cmvm install <version>`:
 
 ```
 main()
-  └─ Commands::install_version()
+  └─ commands::install_version()
         ├─ releases::build_cache()          # fetch / refresh releases.json from GitHub API
         │    └─ http::get()                 # GET https://api.github.com/repos/Kitware/CMake/releases
         ├─ releases::get_release()          # look up the requested version in the local cache
@@ -40,7 +39,7 @@ main()
         │    ├─ package::uncompress()       # extract .tar.gz with flate2 + tar
         │    ├─ package::copy()             # copy bin/ doc/ man/ share/ to versions dir
         │    └─ package::clean()            # remove temporary archive from cache
-        └─ Commands::use_version()          # update the `current` symlink
+        └─ commands::use_version()          # update the `current` symlink
              └─ Version::use()             # std::os::unix::fs::symlink
 ```
 

@@ -24,7 +24,10 @@ pub struct Version {
 
 impl Version {
     pub fn get_tag_name(&self) -> String {
-        self.tag_name.replace("v", "")
+        self.tag_name
+            .strip_prefix('v')
+            .unwrap_or(&self.tag_name)
+            .to_string()
     }
 
     pub fn from_raw_value(raw_value: Value) -> Result<Version> {
@@ -247,11 +250,8 @@ mod test {
     #[cfg(target_os = "linux")]
     fn write_releases(cache_dir: &std::path::Path, raw: &serde_json::Value) {
         cache::create_dir(cache_dir).unwrap();
-        let mut f = cache::create_file(
-            &cache_dir.join(crate::constants::RELEASES_FILE_NAME),
-            cache_dir,
-        )
-        .unwrap();
+        let mut f =
+            cache::create_file(&cache_dir.join(crate::constants::RELEASES_FILE_NAME)).unwrap();
         use std::io::Write;
         f.write_all(raw.to_string().as_bytes()).unwrap();
     }
