@@ -91,6 +91,21 @@ pub fn use_version(v: &str, storage: &impl Storage) -> Result<()> {
     Ok(())
 }
 
+pub fn current_version(storage: &impl Storage) -> Result<()> {
+    let current_version_dir = storage.get_current_version_dir()?;
+    match current_version_dir.read_link() {
+        Ok(path) => {
+            if let Some(name) = path.file_name() {
+                println!("[cmvm] {}", name.to_string_lossy());
+            }
+        }
+        Err(_) => println!(
+            "[cmvm] No cmake version is currently active. Use `cmvm use <version>` to set one."
+        ),
+    }
+    Ok(())
+}
+
 pub fn display_shell_instructions(storage: &impl Storage) -> Result<()> {
     let current_version_dir = storage.get_current_version_dir()?;
 
