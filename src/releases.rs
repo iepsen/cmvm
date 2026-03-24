@@ -323,8 +323,7 @@ mod tests {
                 "prerelease": false
             }
         ]);
-        let mut cache_file =
-            cache::create_file(&cache_dir.join(RELEASES_FILE_NAME)).unwrap();
+        let mut cache_file = cache::create_file(&cache_dir.join(RELEASES_FILE_NAME)).unwrap();
         cache_file
             .write_all(raw_releases.to_string().as_bytes())
             .unwrap();
