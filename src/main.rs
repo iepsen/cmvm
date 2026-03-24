@@ -38,6 +38,9 @@ enum CliCommands {
     /// List available cmake versions to install
     ListRemote,
 
+    /// Show the currently active cmake version
+    Current,
+
     /// Show how to put cmake current version on PATH env variable
     Shell,
 }
@@ -53,6 +56,7 @@ fn main() -> Result<()> {
         CliCommands::Use { v } => commands::use_version(&v, &storage)?,
         CliCommands::List => commands::list_versions(&storage)?,
         CliCommands::ListRemote => commands::list_remote_versions(&storage)?,
+        CliCommands::Current => commands::current_version(&storage)?,
         CliCommands::Shell => commands::display_shell_instructions(&storage)?,
     }
     Ok(())

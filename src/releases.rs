@@ -41,10 +41,15 @@ pub fn delete_cache_release(version: &str, storage: &impl Storage) -> Result<()>
     let current_version_dir = storage.get_current_version_dir()?;
     if let Some(release) = get_release(version, storage)? {
         let version_path = versions_dir.join(release.get_tag_name());
-        if current_version_dir.read_link()? == version_path {
+        if !version_path.exists() {
+            bail!("[cmvm] Version {} is not installed.", version);
+        }
+        if current_version_dir.read_link().ok().as_ref() == Some(&version_path) {
             cache::delete(&current_version_dir)?;
         }
         cache::delete(version_path.as_path())?;
+    } else {
+        bail!("[cmvm] Version {} not found.", version);
     }
 
     Ok(())
@@ -74,7 +79,9 @@ fn cache_releases(cache_dir: PathBuf, page: Option<i32>) -> Result<()> {
             for page in 2..=pages {
                 cache_releases(cache_dir.clone(), Some(page))?;
             }
-            merge(cache_dir.clone(), pages)?;
+            merge(cache_dir, pages)?;
+        } else {
+            merge(cache_dir, 1)?;
         }
     }
     Ok(())
@@ -300,5 +307,83 @@ mod tests {
         cache::delete(&cache_dir).ok();
 
         assert!(release.is_none());
+    }
+
+    #[test]
+    fn test_delete_cache_release_fails_when_version_cached_but_not_installed() {
+        let cache_dir = env::temp_dir().join("cmvm_test_delete_not_installed");
+        let _ = std::fs::remove_dir_all(&cache_dir);
+        let versions_dir = cache_dir.join("versions");
+        std::fs::create_dir_all(&versions_dir).unwrap();
+        // Write releases.json directly (versions dir already created)
+        let raw_releases = json!([
+            {
+                "assets": [],
+                "tag_name": "v3.25.0",
+                "prerelease": false
+            }
+        ]);
+        let mut cache_file = cache::create_file(&cache_dir.join(RELEASES_FILE_NAME)).unwrap();
+        cache_file
+            .write_all(raw_releases.to_string().as_bytes())
+            .unwrap();
+
+        let storage = MockStorage {
+            cache_dir: cache_dir.clone(),
+        };
+        // Version is in cache but directory does not exist → should error
+        let result = delete_cache_release("3.25.0", &storage);
+        cache::delete(&cache_dir).ok();
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_delete_cache_release_fails_when_version_not_in_cache() {
+        let cache_dir = env::temp_dir().join("cmvm_test_delete_unknown");
+        let _ = std::fs::remove_dir_all(&cache_dir);
+        let raw_releases = json!([
+            {
+                "assets": [],
+                "tag_name": "v3.25.0",
+                "prerelease": false
+            }
+        ]);
+        write_releases_cache(&cache_dir, &raw_releases);
+
+        let storage = MockStorage {
+            cache_dir: cache_dir.clone(),
+        };
+        let result = delete_cache_release("3.99.0", &storage);
+        cache::delete(&cache_dir).ok();
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_merge_single_page() {
+        let cache_dir = env::temp_dir().join("cmvm_test_merge_single_page");
+        let _ = std::fs::remove_dir_all(&cache_dir);
+        std::fs::create_dir_all(&cache_dir).unwrap();
+
+        let raw = json!([
+            {
+                "assets": [],
+                "tag_name": "v3.28.0",
+                "prerelease": false
+            }
+        ]);
+        let page_file = cache_dir.join("1.json");
+        let mut f = std::fs::File::create(&page_file).unwrap();
+        use std::io::Write as _;
+        f.write_all(raw.to_string().as_bytes()).unwrap();
+
+        merge(cache_dir.clone(), 1).unwrap();
+
+        let releases_file = cache_dir.join(RELEASES_FILE_NAME);
+        assert!(releases_file.exists(), "releases.json must be created");
+        let content = std::fs::read_to_string(&releases_file).unwrap();
+        assert!(content.contains("v3.28.0"));
+        assert!(!page_file.exists(), "1.json should be cleaned up");
+
+        cache::delete(&cache_dir).ok();
     }
 }

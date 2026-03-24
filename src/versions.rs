@@ -1,7 +1,7 @@
 use crate::constants::RELEASES_FILE_NAME;
 use crate::storage::Storage;
 use crate::{cache, package, platform};
-use anyhow::Result;
+use anyhow::{bail, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -58,15 +58,21 @@ impl Version {
     pub fn r#use(&mut self, storage: &impl Storage) -> Result<()> {
         let current_version_dir = storage.get_current_version_dir()?;
         let versions_dir = storage.get_versions_dir()?;
+        let version_path = versions_dir.join(self.get_tag_name());
+
+        if !version_path.exists() {
+            bail!(
+                "[cmvm] Version {} is not installed. Use `cmvm install {}` first.",
+                self.get_tag_name(),
+                self.get_tag_name()
+            );
+        }
 
         if current_version_dir.exists() {
             cache::delete(&current_version_dir)?;
         }
 
-        std::os::unix::fs::symlink(
-            versions_dir.join(self.get_tag_name()),
-            current_version_dir.as_path(),
-        )?;
+        std::os::unix::fs::symlink(version_path, current_version_dir.as_path())?;
 
         Ok(())
     }
@@ -74,7 +80,8 @@ impl Version {
     pub fn list(storage: &impl Storage) -> Result<String> {
         let current_version_dir = storage.get_current_version_dir()?;
         let versions_dir = storage.get_versions_dir()?;
-        let versions = cache::ls(&versions_dir)?;
+        let mut versions = cache::ls(&versions_dir)?;
+        versions.sort();
         let mut mapped_versions: Vec<String> = Vec::new();
         let current = current_version_dir.read_link().unwrap_or_default();
 
@@ -337,6 +344,28 @@ mod test {
             cache_dir: cache_dir.clone(),
         };
         let result = Version::list_remote(&storage).unwrap();
+        let _ = std::fs::remove_dir_all(&cache_dir);
+        let lines: Vec<&str> = result.lines().collect();
+        assert_eq!(lines.len(), 3);
+        assert!(lines[0].contains("3.20.0"));
+        assert!(lines[1].contains("3.21.0"));
+        assert!(lines[2].contains("3.22.0"));
+    }
+
+    #[test]
+    #[cfg(target_os = "linux")]
+    fn test_list_is_sorted() {
+        let cache_dir = std::env::temp_dir().join("cmvm_test_list_sorted");
+        let _ = std::fs::remove_dir_all(&cache_dir);
+        let versions_dir = cache_dir.join("versions");
+        std::fs::create_dir_all(&versions_dir).unwrap();
+        std::fs::create_dir_all(versions_dir.join("3.22.0")).unwrap();
+        std::fs::create_dir_all(versions_dir.join("3.20.0")).unwrap();
+        std::fs::create_dir_all(versions_dir.join("3.21.0")).unwrap();
+        let storage = MockStorage {
+            cache_dir: cache_dir.clone(),
+        };
+        let result = Version::list(&storage).unwrap();
         let _ = std::fs::remove_dir_all(&cache_dir);
         let lines: Vec<&str> = result.lines().collect();
         assert_eq!(lines.len(), 3);
