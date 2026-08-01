@@ -22,7 +22,7 @@ pub fn install_version(v: &str, storage: &impl Storage) -> Result<()> {
             Ok(()) => {
                 println!(
                     "[cmvm] Version {} installed successfully.",
-                    &version.get_tag_name()
+                    version.get_tag_name()
                 );
                 use_version(v, storage)?;
                 println!("[cmvm] Done.");
