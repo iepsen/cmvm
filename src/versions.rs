@@ -10,6 +10,7 @@ pub struct Asset {
     pub name: String,
     pub content_type: String,
     pub browser_download_url: String,
+    pub digest: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, Ord, PartialEq, PartialOrd)]
@@ -199,6 +200,7 @@ mod test {
             "name": "cmake-3.22.3-linux-aarch64.tar.gz",
             "browser_download_url": "http://fake_browser_download_url",
             "content_type": "application/gzip",
+            "digest": "sha256:2b3cd85eec6db7a1a418559af44527e89b7c6af8d91af4a9a20c8f13d355b565"
         });
         let raw_version = json!({
             "tag_name": "v3.22.3",
@@ -216,6 +218,10 @@ mod test {
         assert_eq!(
             assets.unwrap().browser_download_url,
             "http://fake_browser_download_url"
+        );
+        assert_eq!(
+            assets.unwrap().digest.as_deref(),
+            Some("sha256:2b3cd85eec6db7a1a418559af44527e89b7c6af8d91af4a9a20c8f13d355b565")
         );
         assert_eq!(assets.unwrap().content_type, "application/gzip");
     }
