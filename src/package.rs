@@ -1,6 +1,8 @@
 use anyhow::{bail, Result};
 use flate2::read::GzDecoder;
 use std::fs;
+use std::io::Read;
+use std::path::{Component, Path};
 use tar::Archive;
 extern crate fs_extra;
 use crate::http;
@@ -10,6 +12,9 @@ use crate::{cache, platform};
 use fs_extra::dir;
 
 pub fn get_cmake_release(version: &Version, storage: &impl Storage) -> Result<()> {
+    let tag_name = version.get_tag_name();
+    validate_path_component(&tag_name, "version tag")?;
+
     let assets = filter_platform_assets(version);
 
     if assets.is_empty() {
@@ -19,12 +24,21 @@ pub fn get_cmake_release(version: &Version, storage: &impl Storage) -> Result<()
     let asset = assets.first();
 
     if let Some(asset) = asset {
-        download(&version.get_tag_name(), asset, storage)?;
-        uncompress(&version.get_tag_name(), asset, storage)?;
-        copy(&version.get_tag_name(), asset, storage)?;
-        clean(&version.get_tag_name(), storage)?;
+        validate_path_component(&asset.name, "asset name")?;
+        download(&tag_name, asset, storage)?;
+        uncompress(&tag_name, asset, storage)?;
+        copy(&tag_name, asset, storage)?;
+        clean(&tag_name, storage)?;
     }
 
+    Ok(())
+}
+
+fn validate_path_component(value: &str, description: &str) -> Result<()> {
+    let mut components = Path::new(value).components();
+    if !matches!(components.next(), Some(Component::Normal(_))) || components.next().is_some() {
+        bail!("Invalid {description}: {value}");
+    }
     Ok(())
 }
 
@@ -74,7 +88,32 @@ fn uncompress(tag_name: &str, asset: &Asset, storage: &impl Storage) -> Result<(
     let mut archive = Archive::new(gz);
 
     println!("[cmvm] Uncompressing {}.", asset.name);
-    archive.unpack(cache_dir.join(tag_name))?;
+    unpack_archive(&mut archive, &cache_dir.join(tag_name))?;
+
+    Ok(())
+}
+
+fn unpack_archive<R: Read>(archive: &mut Archive<R>, destination: &Path) -> Result<()> {
+    archive.set_mask(0o7022);
+    archive.set_preserve_permissions(false);
+    archive.set_preserve_ownerships(false);
+    archive.set_unpack_xattrs(false);
+
+    for entry in archive.entries()? {
+        let mut entry = entry?;
+        let entry_type = entry.header().entry_type();
+        if !entry_type.is_file() && !entry_type.is_contiguous() && !entry_type.is_dir() {
+            bail!("Unsupported entry type in archive.");
+        }
+
+        let path = entry.path()?.into_owned();
+        if !entry.unpack_in(destination)? {
+            bail!(
+                "Archive entry {} is outside the destination.",
+                path.display()
+            );
+        }
+    }
 
     Ok(())
 }
@@ -128,6 +167,9 @@ fn clean(tag_name: &str, storage: &impl Storage) -> Result<()> {
 mod tests {
     use super::*;
     use crate::versions::{Asset, Version};
+    use std::env;
+    use std::path::PathBuf;
+    use tar::{Builder, EntryType, Header};
 
     fn make_asset(name: &str, content_type: &str) -> Asset {
         Asset {
@@ -146,6 +188,94 @@ mod tests {
             tag_name: "v3.22.0".to_string(),
             assets,
         }
+    }
+
+    fn test_dir(name: &str) -> PathBuf {
+        let path = env::temp_dir().join(format!("cmvm_{name}_{}", std::process::id()));
+        let _ = fs::remove_dir_all(&path);
+        fs::create_dir_all(&path).unwrap();
+        path
+    }
+
+    fn archive_with_file(path: &str, mode: u32) -> Vec<u8> {
+        let mut builder = Builder::new(Vec::new());
+        let mut header = Header::new_gnu();
+        header.set_size(1);
+        header.set_mode(mode);
+        header.set_cksum();
+        builder.append_data(&mut header, path, &b"x"[..]).unwrap();
+        builder.into_inner().unwrap()
+    }
+
+    #[test]
+    fn test_validate_path_component_rejects_paths() {
+        assert!(validate_path_component("3.22.0", "version tag").is_ok());
+        assert!(validate_path_component("../outside", "version tag").is_err());
+        assert!(validate_path_component("/outside", "asset name").is_err());
+    }
+
+    #[test]
+    fn test_unpack_archive_rejects_entries_outside_destination() {
+        let base = test_dir("archive_traversal");
+        let destination = base.join("extract");
+        fs::create_dir(&destination).unwrap();
+        let mut builder = Builder::new(Vec::new());
+        let mut header = Header::new_gnu();
+        header.as_mut_bytes()[..10].copy_from_slice(b"../outside");
+        header.set_size(1);
+        header.set_mode(0o644);
+        header.set_cksum();
+        builder.append(&header, &b"x"[..]).unwrap();
+        let archive_data = builder.into_inner().unwrap();
+        let mut archive = Archive::new(&archive_data[..]);
+
+        assert!(unpack_archive(&mut archive, &destination).is_err());
+        assert!(!base.join("outside").exists());
+        let _ = fs::remove_dir_all(base);
+    }
+
+    #[test]
+    fn test_unpack_archive_rejects_link_entries() {
+        let base = test_dir("archive_link");
+        let destination = base.join("extract");
+        fs::create_dir(&destination).unwrap();
+        let mut builder = Builder::new(Vec::new());
+        let mut header = Header::new_gnu();
+        header.set_entry_type(EntryType::symlink());
+        header.set_size(0);
+        header.set_mode(0o777);
+        header.set_cksum();
+        builder
+            .append_link(&mut header, "link", "../outside")
+            .unwrap();
+        let archive_data = builder.into_inner().unwrap();
+        let mut archive = Archive::new(&archive_data[..]);
+
+        assert!(unpack_archive(&mut archive, &destination).is_err());
+        assert!(!base.join("outside").exists());
+        let _ = fs::remove_dir_all(base);
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn test_unpack_archive_masks_unsafe_permissions() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let base = test_dir("archive_permissions");
+        let destination = base.join("extract");
+        fs::create_dir(&destination).unwrap();
+        let archive_data = archive_with_file("file", 0o7777);
+        let mut archive = Archive::new(&archive_data[..]);
+
+        unpack_archive(&mut archive, &destination).unwrap();
+
+        let mode = fs::metadata(destination.join("file"))
+            .unwrap()
+            .permissions()
+            .mode()
+            & 0o7777;
+        assert_eq!(mode & 0o7022, 0);
+        let _ = fs::remove_dir_all(base);
     }
 
     #[test]
