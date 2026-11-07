@@ -10,8 +10,11 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::thread::spawn;
 use std::{
     fs::{self, OpenOptions},
-    io::Write,
+    io::{self, Read, Write},
 };
+
+const MAX_RELEASES_PAGE_SIZE: u64 = 10 * 1024 * 1024;
+const MAX_RELEASES_PAGES: i32 = 100;
 
 pub fn build_cache(storage: &impl Storage) -> Result<()> {
     let cache_dir = storage.get_cache_dir()?;
@@ -62,12 +65,24 @@ pub fn delete_cache_release(version: &str, storage: &impl Storage) -> Result<()>
 fn cache_releases(cache_dir: PathBuf, page: Option<i32>) -> Result<()> {
     let current_page = page.unwrap_or(1);
     let first_page = current_page == 1;
-    let mut response = http::get(format!("{}?page={}", BASE_URL, current_page).as_str())?;
+    let response = http::get(format!("{}?page={}", BASE_URL, current_page).as_str())?;
 
     if !response.status().is_success() {
         bail!("[cmvm] Something went wrong");
     }
 
+    if response
+        .content_length()
+        .is_some_and(|size| size > MAX_RELEASES_PAGE_SIZE)
+    {
+        bail!("[cmvm] Release metadata page exceeds the maximum size.");
+    }
+
+    let link_header = response
+        .headers()
+        .get("link")
+        .map(|header| header.to_str().map(str::to_owned))
+        .transpose()?;
     let current_page_file = cache_dir.join(format!("{}.json", current_page));
 
     if current_page_file.exists() {
@@ -75,11 +90,15 @@ fn cache_releases(cache_dir: PathBuf, page: Option<i32>) -> Result<()> {
     }
 
     let mut file = cache::create_file(current_page_file.as_path())?;
-    response.copy_to(&mut file)?;
+    if let Err(error) = copy_with_limit(response, &mut file, MAX_RELEASES_PAGE_SIZE) {
+        drop(file);
+        fs::remove_file(&current_page_file)?;
+        return Err(error);
+    }
 
     if first_page {
-        if let Some(link_header) = response.headers().get("link") {
-            let pages = get_number_of_pages(link_header.to_str()?)?;
+        if let Some(link_header) = link_header {
+            let pages = get_number_of_pages(&link_header)?;
             for page in 2..=pages {
                 cache_releases(cache_dir.clone(), Some(page))?;
             }
@@ -87,6 +106,14 @@ fn cache_releases(cache_dir: PathBuf, page: Option<i32>) -> Result<()> {
         } else {
             merge(cache_dir, 1)?;
         }
+    }
+    Ok(())
+}
+
+fn copy_with_limit<R: Read, W: Write>(reader: R, writer: &mut W, max_size: u64) -> Result<()> {
+    let mut reader = reader.take(max_size + 1);
+    if io::copy(&mut reader, writer)? > max_size {
+        bail!("[cmvm] Release metadata page exceeds the maximum size.");
     }
     Ok(())
 }
@@ -101,11 +128,10 @@ fn merge(cache_dir: PathBuf, pages: i32) -> Result<()> {
             let file_contents = fs::read_to_string(&page_file)?;
             let releases_json: Value = serde_json::from_str(file_contents.as_str())?;
 
-            releases_json
+            let releases_array = releases_json
                 .as_array()
-                .unwrap()
-                .iter()
-                .for_each(|r| releases.push(r.clone()));
+                .ok_or_else(|| anyhow::anyhow!("Release metadata page is not a JSON array."))?;
+            releases.extend(releases_array.iter().cloned());
         }
     }
 
@@ -167,7 +193,17 @@ fn get_number_of_pages(link_header: &str) -> Result<i32> {
     let parsed_link_header = parse_link_header::parse(link_header)?;
     let last_link = parsed_link_header.get(&Some("last".to_string()));
     if let Some(last_link) = last_link {
-        last_page = last_link.queries["page"].parse::<i32>()?;
+        last_page = last_link
+            .queries
+            .get("page")
+            .ok_or_else(|| anyhow::anyhow!("Last release page is missing a page number."))?
+            .parse::<i32>()?;
+    }
+    if !(1..=MAX_RELEASES_PAGES).contains(&last_page) {
+        bail!(
+            "Release metadata contains an invalid number of pages: {}.",
+            last_page
+        );
     }
     Ok(last_page)
 }
@@ -178,6 +214,7 @@ mod tests {
     use anyhow::Result;
     use serde_json::json;
     use std::env;
+    use std::io::Cursor;
     use std::path::PathBuf;
 
     struct MockStorage {
@@ -292,6 +329,21 @@ mod tests {
             "<https://api.github.com/repos/Kitware/CMake/releases?page=1>; rel=\"prev\"";
         let pages = get_number_of_pages(link_header).unwrap();
         assert_eq!(pages, 1);
+    }
+
+    #[test]
+    fn test_get_number_of_pages_rejects_excessive_last_page() {
+        let link_header =
+            "<https://api.github.com/repos/Kitware/CMake/releases?page=101>; rel=\"last\"";
+
+        assert!(get_number_of_pages(link_header).is_err());
+    }
+
+    #[test]
+    fn test_copy_with_limit_rejects_oversized_response() {
+        let mut output = Vec::new();
+
+        assert!(copy_with_limit(Cursor::new(b"1234"), &mut output, 3).is_err());
     }
 
     fn write_releases_cache(cache_dir: &std::path::Path, raw_release: &serde_json::Value) {
@@ -469,6 +521,21 @@ mod tests {
         let releases_file = cache_dir.join(RELEASES_FILE_NAME);
         std::fs::write(&releases_file, b"[]").unwrap();
         std::fs::write(cache_dir.join("1.json"), b"invalid json").unwrap();
+
+        assert!(merge(cache_dir.clone(), 1).is_err());
+        assert_eq!(std::fs::read_to_string(&releases_file).unwrap(), "[]");
+
+        cache::delete(&cache_dir).ok();
+    }
+
+    #[test]
+    fn test_merge_rejects_non_array_page() {
+        let cache_dir = env::temp_dir().join("cmvm_test_merge_non_array_page");
+        let _ = std::fs::remove_dir_all(&cache_dir);
+        std::fs::create_dir_all(&cache_dir).unwrap();
+        let releases_file = cache_dir.join(RELEASES_FILE_NAME);
+        std::fs::write(&releases_file, b"[]").unwrap();
+        std::fs::write(cache_dir.join("1.json"), b"{}").unwrap();
 
         assert!(merge(cache_dir.clone(), 1).is_err());
         assert_eq!(std::fs::read_to_string(&releases_file).unwrap(), "[]");
