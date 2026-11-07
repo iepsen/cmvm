@@ -20,6 +20,7 @@ pub struct Asset {
     pub name: String,
     pub content_type: String,
     pub browser_download_url: String,
+    pub digest: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, Ord, PartialEq, PartialOrd)]
@@ -46,11 +47,22 @@ impl Version {
         for asset in &version.assets {
             validate_path_component(&asset.name)?;
         }
+        let version_components = version.get_version_vec();
+        let (Some(major), Some(minor), Some(patch)) = (
+            version_components.first(),
+            version_components.get(1),
+            version_components.get(2),
+        ) else {
+            bail!(
+                "Invalid version tag '{}': expected major.minor.patch",
+                version.tag_name
+            );
+        };
 
         Ok(Self {
-            major: Some(*version.get_version_vec().first().unwrap()),
-            minor: Some(*version.get_version_vec().get(1).unwrap()),
-            patch: Some(*version.get_version_vec().get(2).unwrap()),
+            major: Some(*major),
+            minor: Some(*minor),
+            patch: Some(*patch),
             prerelease: version.prerelease,
             tag_name: version.tag_name,
             assets: version.assets,
@@ -204,6 +216,7 @@ mod test {
             "name": "cmake-3.22.3-linux-aarch64.tar.gz",
             "browser_download_url": "http://fake_browser_download_url",
             "content_type": "application/gzip",
+            "digest": "sha256:2b3cd85eec6db7a1a418559af44527e89b7c6af8d91af4a9a20c8f13d355b565"
         });
         let raw_version = json!({
             "tag_name": "v3.22.3",
@@ -222,6 +235,10 @@ mod test {
             assets.unwrap().browser_download_url,
             "http://fake_browser_download_url"
         );
+        assert_eq!(
+            assets.unwrap().digest.as_deref(),
+            Some("sha256:2b3cd85eec6db7a1a418559af44527e89b7c6af8d91af4a9a20c8f13d355b565")
+        );
         assert_eq!(assets.unwrap().content_type, "application/gzip");
     }
 
@@ -237,6 +254,17 @@ mod test {
         }
     }
 
+    #[test]
+    fn test_malformed_raw_version_returns_error() {
+        for tag_name in ["v3", "latest"] {
+            let raw_version = json!({
+                "tag_name": tag_name,
+                "assets": []
+            });
+
+            assert!(Version::from_raw_value(raw_version).is_err());
+        }
+    }
     #[test]
     fn test_raw_version_rejects_path_traversal_in_asset_name() {
         for name in ["../outside.tar.gz", "/outside.tar.gz"] {
