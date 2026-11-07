@@ -1,6 +1,8 @@
 use anyhow::{bail, Result};
 use flate2::read::GzDecoder;
 use std::fs;
+use std::io::{self, Read};
+use std::path::Path;
 use tar::Archive;
 extern crate fs_extra;
 use crate::http;
@@ -8,6 +10,11 @@ use crate::storage::Storage;
 use crate::versions::{Asset, Version};
 use crate::{cache, platform};
 use fs_extra::dir;
+
+const MAX_COMPRESSED_ARCHIVE_SIZE: u64 = 512 * 1024 * 1024;
+const MAX_UNCOMPRESSED_ARCHIVE_SIZE: u64 = 2 * 1024 * 1024 * 1024;
+const MAX_ARCHIVE_ENTRIES: usize = 100_000;
+const MAX_ARCHIVE_METADATA_SIZE: u64 = 1024 * 1024;
 
 pub fn get_cmake_release(version: &Version, storage: &impl Storage) -> Result<()> {
     let assets = filter_platform_assets(version);
@@ -58,23 +65,116 @@ fn download(tag_name: &str, asset: &Asset, storage: &impl Storage) -> Result<()>
     cache::create_dir(&version_dir_path)?;
 
     println!("[cmvm] Downloading {}.", asset.browser_download_url);
-    let mut response = http::get(&asset.browser_download_url)?;
+    let response = http::get(&asset.browser_download_url)?;
+    if response
+        .content_length()
+        .is_some_and(|size| size > MAX_COMPRESSED_ARCHIVE_SIZE)
+    {
+        bail!("[cmvm] Download exceeds the maximum archive size.");
+    }
+
     let file_path = &cache_dir.join(tag_name).join(&asset.name);
     let mut file = cache::create_file(file_path)?;
-    response.copy_to(&mut file)?;
+    let mut response = response.take(MAX_COMPRESSED_ARCHIVE_SIZE + 1);
+    if io::copy(&mut response, &mut file)? > MAX_COMPRESSED_ARCHIVE_SIZE {
+        drop(file);
+        fs::remove_file(file_path)?;
+        bail!("[cmvm] Download exceeds the maximum archive size.");
+    }
 
     Ok(())
 }
 
 fn uncompress(tag_name: &str, asset: &Asset, storage: &impl Storage) -> Result<()> {
     let cache_dir = storage.get_cache_dir()?;
-    let compressed_file = fs::read(cache_dir.join(tag_name).join(&asset.name))?;
-
-    let gz = GzDecoder::new(&*compressed_file);
-    let mut archive = Archive::new(gz);
+    let archive_path = cache_dir.join(tag_name).join(&asset.name);
+    validate_archive(
+        GzDecoder::new(fs::File::open(&archive_path)?),
+        MAX_ARCHIVE_ENTRIES,
+        MAX_UNCOMPRESSED_ARCHIVE_SIZE,
+        MAX_ARCHIVE_METADATA_SIZE,
+    )?;
+    let compressed_file = fs::File::open(archive_path)?;
+    let gz = GzDecoder::new(compressed_file);
 
     println!("[cmvm] Uncompressing {}.", asset.name);
-    archive.unpack(cache_dir.join(tag_name))?;
+    unpack_archive(
+        gz,
+        &cache_dir.join(tag_name),
+        MAX_ARCHIVE_ENTRIES,
+        MAX_UNCOMPRESSED_ARCHIVE_SIZE,
+    )?;
+
+    Ok(())
+}
+
+fn validate_archive<R: Read>(
+    reader: R,
+    max_entries: usize,
+    max_uncompressed_size: u64,
+    max_metadata_size: u64,
+) -> Result<()> {
+    let mut archive = Archive::new(reader);
+    let mut entry_count = 0;
+    let mut uncompressed_size: u64 = 0;
+
+    for entry in archive.entries()?.raw(true) {
+        let entry = entry?;
+        entry_count += 1;
+        if entry_count > max_entries {
+            bail!("[cmvm] Archive contains too many entries.");
+        }
+
+        let entry_size = entry.size();
+        uncompressed_size = uncompressed_size.checked_add(entry_size).ok_or_else(|| {
+            anyhow::anyhow!("[cmvm] Archive exceeds the maximum uncompressed size.")
+        })?;
+        if uncompressed_size > max_uncompressed_size {
+            bail!("[cmvm] Archive exceeds the maximum uncompressed size.");
+        }
+
+        let entry_type = entry.header().entry_type();
+        if (entry_type.is_gnu_longname()
+            || entry_type.is_gnu_longlink()
+            || entry_type.is_pax_local_extensions()
+            || entry_type.is_pax_global_extensions())
+            && entry_size > max_metadata_size
+        {
+            bail!("[cmvm] Archive metadata entry exceeds the maximum size.");
+        }
+    }
+
+    Ok(())
+}
+
+fn unpack_archive<R: Read>(
+    reader: R,
+    destination: &Path,
+    max_entries: usize,
+    max_uncompressed_size: u64,
+) -> Result<()> {
+    let mut archive = Archive::new(reader);
+    let mut entry_count = 0;
+    let mut uncompressed_size: u64 = 0;
+
+    for entry in archive.entries()? {
+        let mut entry = entry?;
+        entry_count += 1;
+        if entry_count > max_entries {
+            bail!("[cmvm] Archive contains too many entries.");
+        }
+
+        uncompressed_size = uncompressed_size.checked_add(entry.size()).ok_or_else(|| {
+            anyhow::anyhow!("[cmvm] Archive exceeds the maximum uncompressed size.")
+        })?;
+        if uncompressed_size > max_uncompressed_size {
+            bail!("[cmvm] Archive exceeds the maximum uncompressed size.");
+        }
+
+        if !entry.unpack_in(destination)? {
+            bail!("[cmvm] Archive entry is outside the destination directory.");
+        }
+    }
 
     Ok(())
 }
@@ -128,6 +228,9 @@ fn clean(tag_name: &str, storage: &impl Storage) -> Result<()> {
 mod tests {
     use super::*;
     use crate::versions::{Asset, Version};
+    use flate2::write::GzEncoder;
+    use flate2::Compression;
+    use std::io::Cursor;
 
     fn make_asset(name: &str, content_type: &str) -> Asset {
         Asset {
@@ -146,6 +249,84 @@ mod tests {
             tag_name: "v3.22.0".to_string(),
             assets,
         }
+    }
+
+    fn make_archive(entries: &[(&str, &[u8])]) -> Vec<u8> {
+        let encoder = GzEncoder::new(Vec::new(), Compression::default());
+        let mut builder = tar::Builder::new(encoder);
+        for (path, contents) in entries {
+            let mut header = tar::Header::new_gnu();
+            header.set_size(contents.len() as u64);
+            header.set_mode(0o644);
+            header.set_cksum();
+            builder.append_data(&mut header, path, *contents).unwrap();
+        }
+        builder.into_inner().unwrap().finish().unwrap()
+    }
+
+    fn make_metadata_archive(metadata: &[u8]) -> Vec<u8> {
+        let encoder = GzEncoder::new(Vec::new(), Compression::default());
+        let mut builder = tar::Builder::new(encoder);
+        let mut header = tar::Header::new_gnu();
+        header.set_entry_type(tar::EntryType::GNULongName);
+        header.set_size(metadata.len() as u64);
+        header.set_cksum();
+        builder
+            .append_data(&mut header, "././@LongLink", metadata)
+            .unwrap();
+        builder.into_inner().unwrap().finish().unwrap()
+    }
+
+    fn make_destination(name: &str) -> std::path::PathBuf {
+        let destination =
+            std::env::temp_dir().join(format!("cmvm_package_{name}_{}", std::process::id()));
+        let _ = fs::remove_dir_all(&destination);
+        fs::create_dir_all(&destination).unwrap();
+        destination
+    }
+
+    #[test]
+    fn test_unpack_archive_rejects_too_many_entries() {
+        let archive = make_archive(&[("first", b"first"), ("second", b"second")]);
+        let destination = make_destination("entry_limit");
+
+        let result = unpack_archive(GzDecoder::new(Cursor::new(archive)), &destination, 1, 100);
+
+        assert!(result.is_err());
+        let _ = fs::remove_dir_all(destination);
+    }
+
+    #[test]
+    fn test_unpack_archive_rejects_expansion_over_limit() {
+        let archive = make_archive(&[("file", b"content")]);
+        let destination = make_destination("size_limit");
+
+        let result = unpack_archive(GzDecoder::new(Cursor::new(archive)), &destination, 10, 6);
+
+        assert!(result.is_err());
+        assert!(!destination.join("file").exists());
+        let _ = fs::remove_dir_all(destination);
+    }
+
+    #[test]
+    fn test_validate_archive_rejects_oversized_metadata() {
+        let archive = make_metadata_archive(b"longname");
+
+        let result = validate_archive(GzDecoder::new(Cursor::new(archive)), 10, 100, 4);
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_unpack_archive_extracts_valid_entry() {
+        let archive = make_archive(&[("file", b"content")]);
+        let destination = make_destination("valid");
+
+        validate_archive(GzDecoder::new(Cursor::new(archive.clone())), 10, 100, 100).unwrap();
+        unpack_archive(GzDecoder::new(Cursor::new(archive)), &destination, 10, 100).unwrap();
+
+        assert_eq!(fs::read(destination.join("file")).unwrap(), b"content");
+        let _ = fs::remove_dir_all(destination);
     }
 
     #[test]
