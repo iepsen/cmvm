@@ -32,11 +32,22 @@ impl Version {
 
     pub fn from_raw_value(raw_value: Value) -> Result<Version> {
         let version: Version = serde_json::from_value(raw_value)?;
+        let version_components = version.get_version_vec();
+        let (Some(major), Some(minor), Some(patch)) = (
+            version_components.first(),
+            version_components.get(1),
+            version_components.get(2),
+        ) else {
+            bail!(
+                "Invalid version tag '{}': expected major.minor.patch",
+                version.tag_name
+            );
+        };
 
         Ok(Self {
-            major: Some(*version.get_version_vec().first().unwrap()),
-            minor: Some(*version.get_version_vec().get(1).unwrap()),
-            patch: Some(*version.get_version_vec().get(2).unwrap()),
+            major: Some(*major),
+            minor: Some(*minor),
+            patch: Some(*patch),
             prerelease: version.prerelease,
             tag_name: version.tag_name,
             assets: version.assets,
@@ -207,6 +218,18 @@ mod test {
             "http://fake_browser_download_url"
         );
         assert_eq!(assets.unwrap().content_type, "application/gzip");
+    }
+
+    #[test]
+    fn test_malformed_raw_version_returns_error() {
+        for tag_name in ["v3", "latest"] {
+            let raw_version = json!({
+                "tag_name": tag_name,
+                "assets": []
+            });
+
+            assert!(Version::from_raw_value(raw_version).is_err());
+        }
     }
 
     #[test]
