@@ -4,6 +4,16 @@ use crate::{cache, package, platform};
 use anyhow::{bail, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::ffi::OsStr;
+use std::path::{Component, Path};
+
+pub(crate) fn validate_path_component(value: &str) -> Result<()> {
+    let mut components = Path::new(value).components();
+    match (components.next(), components.next()) {
+        (Some(Component::Normal(component)), None) if component == OsStr::new(value) => Ok(()),
+        _ => bail!("Invalid path component: {}", value),
+    }
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, Ord, PartialEq, PartialOrd)]
 pub struct Asset {
@@ -32,6 +42,10 @@ impl Version {
 
     pub fn from_raw_value(raw_value: Value) -> Result<Version> {
         let version: Version = serde_json::from_value(raw_value)?;
+        validate_path_component(&version.tag_name)?;
+        for asset in &version.assets {
+            validate_path_component(&asset.name)?;
+        }
 
         Ok(Self {
             major: Some(*version.get_version_vec().first().unwrap()),
@@ -58,7 +72,9 @@ impl Version {
     pub fn r#use(&mut self, storage: &impl Storage) -> Result<()> {
         let current_version_dir = storage.get_current_version_dir()?;
         let versions_dir = storage.get_versions_dir()?;
-        let version_path = versions_dir.join(self.get_tag_name());
+        let tag_name = self.get_tag_name();
+        validate_path_component(&tag_name)?;
+        let version_path = versions_dir.join(tag_name);
 
         if !version_path.exists() {
             bail!(
@@ -207,6 +223,34 @@ mod test {
             "http://fake_browser_download_url"
         );
         assert_eq!(assets.unwrap().content_type, "application/gzip");
+    }
+
+    #[test]
+    fn test_raw_version_rejects_path_traversal_in_tag_name() {
+        for tag_name in ["../outside", "/outside"] {
+            let raw_version = json!({
+                "tag_name": tag_name,
+                "assets": []
+            });
+
+            assert!(Version::from_raw_value(raw_version).is_err());
+        }
+    }
+
+    #[test]
+    fn test_raw_version_rejects_path_traversal_in_asset_name() {
+        for name in ["../outside.tar.gz", "/outside.tar.gz"] {
+            let raw_version = json!({
+                "tag_name": "v3.22.3",
+                "assets": [{
+                    "name": name,
+                    "browser_download_url": "https://fake",
+                    "content_type": "application/gzip"
+                }]
+            });
+
+            assert!(Version::from_raw_value(raw_version).is_err());
+        }
     }
 
     #[test]

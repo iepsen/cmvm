@@ -5,11 +5,12 @@ use tar::Archive;
 extern crate fs_extra;
 use crate::http;
 use crate::storage::Storage;
-use crate::versions::{Asset, Version};
+use crate::versions::{validate_path_component, Asset, Version};
 use crate::{cache, platform};
 use fs_extra::dir;
 
 pub fn get_cmake_release(version: &Version, storage: &impl Storage) -> Result<()> {
+    validate_path_component(&version.get_tag_name())?;
     let assets = filter_platform_assets(version);
 
     if assets.is_empty() {
@@ -19,6 +20,7 @@ pub fn get_cmake_release(version: &Version, storage: &impl Storage) -> Result<()
     let asset = assets.first();
 
     if let Some(asset) = asset {
+        validate_path_component(&asset.name)?;
         download(&version.get_tag_name(), asset, storage)?;
         uncompress(&version.get_tag_name(), asset, storage)?;
         copy(&version.get_tag_name(), asset, storage)?;
