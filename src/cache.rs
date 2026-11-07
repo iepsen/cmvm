@@ -6,9 +6,24 @@ use std::path::{Path, PathBuf};
 
 fn ensure_dir_exists(path: &Path) -> Result<()> {
     if !path.exists() {
-        fs::create_dir(path)?;
+        create_dir(path)?;
         println!("[cmvm] Creating {}", path.display());
+    } else {
+        set_private_dir_permissions(path)?;
     }
+    Ok(())
+}
+
+#[cfg(unix)]
+fn set_private_dir_permissions(path: &Path) -> Result<()> {
+    use std::os::unix::fs::PermissionsExt;
+
+    fs::set_permissions(path, fs::Permissions::from_mode(0o700))?;
+    Ok(())
+}
+
+#[cfg(not(unix))]
+fn set_private_dir_permissions(_path: &Path) -> Result<()> {
     Ok(())
 }
 
@@ -20,7 +35,18 @@ pub fn bootstrap(storage: &impl Storage) -> Result<()> {
 }
 
 pub fn create_dir(path: &Path) -> Result<()> {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::DirBuilderExt;
+
+        let mut builder = fs::DirBuilder::new();
+        builder.mode(0o700);
+        builder.create(path)?;
+    }
+
+    #[cfg(not(unix))]
     fs::create_dir(path)?;
+
     Ok(())
 }
 
@@ -28,6 +54,23 @@ pub fn create_file(path: &Path) -> Result<fs::File> {
     if path.exists() {
         delete(path)?;
     }
+
+    create_private_file(path)
+}
+
+#[cfg(unix)]
+fn create_private_file(path: &Path) -> Result<fs::File> {
+    use std::os::unix::fs::OpenOptionsExt;
+
+    Ok(fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .mode(0o600)
+        .open(path)?)
+}
+
+#[cfg(not(unix))]
+fn create_private_file(path: &Path) -> Result<fs::File> {
     Ok(fs::File::create(path)?)
 }
 
@@ -70,6 +113,42 @@ mod tests {
         create_dir(&base).unwrap();
         assert!(base.exists());
         assert!(base.is_dir());
+        let _ = fs::remove_dir_all(&base);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn test_create_dir_uses_private_permissions() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let base = env::temp_dir().join("cmvm_test_cache_private_dir");
+        let _ = fs::remove_dir_all(&base);
+        create_dir(&base).unwrap();
+
+        assert_eq!(
+            fs::metadata(&base).unwrap().permissions().mode() & 0o777,
+            0o700
+        );
+
+        let _ = fs::remove_dir_all(&base);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn test_create_file_uses_private_permissions() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let base = env::temp_dir().join("cmvm_test_cache_private_file");
+        let _ = fs::remove_dir_all(&base);
+        fs::create_dir_all(&base).unwrap();
+        let file_path = base.join("test.txt");
+        create_file(&file_path).unwrap();
+
+        assert_eq!(
+            fs::metadata(&file_path).unwrap().permissions().mode() & 0o777,
+            0o600
+        );
+
         let _ = fs::remove_dir_all(&base);
     }
 
