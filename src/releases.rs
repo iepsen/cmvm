@@ -5,9 +5,13 @@ use crate::storage::Storage;
 use crate::versions::Version;
 use anyhow::{bail, Result};
 use serde_json::Value;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::thread::spawn;
-use std::{fs, io::Write};
+use std::{
+    fs::{self, OpenOptions},
+    io::Write,
+};
 
 pub fn build_cache(storage: &impl Storage) -> Result<()> {
     let cache_dir = storage.get_cache_dir()?;
@@ -90,10 +94,6 @@ fn cache_releases(cache_dir: PathBuf, page: Option<i32>) -> Result<()> {
 fn merge(cache_dir: PathBuf, pages: i32) -> Result<()> {
     let mut releases: Vec<Value> = Vec::new();
 
-    if cache_dir.join(RELEASES_FILE_NAME).exists() {
-        cache::delete(&cache_dir.join(RELEASES_FILE_NAME))?;
-    }
-
     for page in 1..=pages {
         let page_file = cache_dir.join(format!("{}.json", page));
 
@@ -106,16 +106,60 @@ fn merge(cache_dir: PathBuf, pages: i32) -> Result<()> {
                 .unwrap()
                 .iter()
                 .for_each(|r| releases.push(r.clone()));
-
-            fs::remove_file(&page_file)?;
         }
     }
 
-    let mut cache_file = cache::create_file(&cache_dir.join(RELEASES_FILE_NAME))?;
     let cache_json = serde_json::to_string(&releases)?;
-    cache_file.write_all(cache_json.as_bytes())?;
+    let releases_file = cache_dir.join(RELEASES_FILE_NAME);
+    write_cache_atomically(&releases_file, cache_json.as_bytes())?;
+
+    for page in 1..=pages {
+        let page_file = cache_dir.join(format!("{}.json", page));
+        if page_file.exists() {
+            fs::remove_file(page_file)?;
+        }
+    }
 
     Ok(())
+}
+
+fn write_cache_atomically(cache_file: &Path, contents: &[u8]) -> Result<()> {
+    static TEMP_FILE_COUNTER: AtomicU64 = AtomicU64::new(0);
+
+    let cache_dir = cache_file
+        .parent()
+        .ok_or_else(|| anyhow::anyhow!("Cache file has no parent directory"))?;
+    let (temp_path, mut temp_file) = loop {
+        let counter = TEMP_FILE_COUNTER.fetch_add(1, Ordering::Relaxed);
+        let temp_path = cache_dir.join(format!(
+            ".{}.{}.{}.tmp",
+            RELEASES_FILE_NAME,
+            std::process::id(),
+            counter
+        ));
+        match OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&temp_path)
+        {
+            Ok(file) => break (temp_path, file),
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => continue,
+            Err(error) => return Err(error.into()),
+        }
+    };
+
+    let result = (|| {
+        temp_file.write_all(contents)?;
+        temp_file.sync_all()?;
+        fs::rename(&temp_path, cache_file)?;
+        Ok(())
+    })();
+
+    if result.is_err() {
+        let _ = fs::remove_file(temp_path);
+    }
+
+    result
 }
 
 fn get_number_of_pages(link_header: &str) -> Result<i32> {
@@ -383,6 +427,51 @@ mod tests {
         let content = std::fs::read_to_string(&releases_file).unwrap();
         assert!(content.contains("v3.28.0"));
         assert!(!page_file.exists(), "1.json should be cleaned up");
+
+        cache::delete(&cache_dir).ok();
+    }
+
+    #[test]
+    fn test_merge_keeps_existing_cache_available_to_open_readers() {
+        use std::io::Read as _;
+
+        let cache_dir = env::temp_dir().join("cmvm_test_merge_atomic_replace");
+        let _ = std::fs::remove_dir_all(&cache_dir);
+        std::fs::create_dir_all(&cache_dir).unwrap();
+        let releases_file = cache_dir.join(RELEASES_FILE_NAME);
+        std::fs::write(&releases_file, b"[]").unwrap();
+        let mut open_reader = std::fs::File::open(&releases_file).unwrap();
+
+        let raw = json!([{"tag_name": "v3.28.0"}]);
+        std::fs::write(cache_dir.join("1.json"), raw.to_string()).unwrap();
+
+        merge(cache_dir.clone(), 1).unwrap();
+
+        assert_eq!(
+            std::fs::read_to_string(&releases_file).unwrap(),
+            raw.to_string()
+        );
+        let mut previous_cache = String::new();
+        open_reader.read_to_string(&mut previous_cache).unwrap();
+        assert_eq!(
+            previous_cache, "[]",
+            "existing readers should retain access to the previous complete cache"
+        );
+
+        cache::delete(&cache_dir).ok();
+    }
+
+    #[test]
+    fn test_merge_preserves_existing_cache_when_page_is_invalid() {
+        let cache_dir = env::temp_dir().join("cmvm_test_merge_invalid_page");
+        let _ = std::fs::remove_dir_all(&cache_dir);
+        std::fs::create_dir_all(&cache_dir).unwrap();
+        let releases_file = cache_dir.join(RELEASES_FILE_NAME);
+        std::fs::write(&releases_file, b"[]").unwrap();
+        std::fs::write(cache_dir.join("1.json"), b"invalid json").unwrap();
+
+        assert!(merge(cache_dir.clone(), 1).is_err());
+        assert_eq!(std::fs::read_to_string(&releases_file).unwrap(), "[]");
 
         cache::delete(&cache_dir).ok();
     }

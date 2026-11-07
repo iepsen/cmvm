@@ -1,19 +1,20 @@
 use anyhow::{bail, Result};
 use flate2::read::GzDecoder;
 use std::fs;
-use std::io::Read;
-use std::path::{Component, Path};
+use std::io::{Read, Write};
+use std::path::Path;
 use tar::Archive;
 extern crate fs_extra;
 use crate::http;
 use crate::storage::Storage;
-use crate::versions::{Asset, Version};
+use crate::versions::{validate_path_component, Asset, Version};
 use crate::{cache, platform};
 use fs_extra::dir;
+use sha2::{Digest, Sha256};
 
 pub fn get_cmake_release(version: &Version, storage: &impl Storage) -> Result<()> {
     let tag_name = version.get_tag_name();
-    validate_path_component(&tag_name, "version tag")?;
+    validate_path_component(&tag_name)?;
 
     let assets = filter_platform_assets(version);
 
@@ -24,21 +25,13 @@ pub fn get_cmake_release(version: &Version, storage: &impl Storage) -> Result<()
     let asset = assets.first();
 
     if let Some(asset) = asset {
-        validate_path_component(&asset.name, "asset name")?;
+        validate_path_component(&asset.name)?;
         download(&tag_name, asset, storage)?;
         uncompress(&tag_name, asset, storage)?;
         copy(&tag_name, asset, storage)?;
         clean(&tag_name, storage)?;
     }
 
-    Ok(())
-}
-
-fn validate_path_component(value: &str, description: &str) -> Result<()> {
-    let mut components = Path::new(value).components();
-    if !matches!(components.next(), Some(Component::Normal(_))) || components.next().is_some() {
-        bail!("Invalid {description}: {value}");
-    }
     Ok(())
 }
 
@@ -62,6 +55,8 @@ pub fn filter_platform_assets(version: &Version) -> Vec<&Asset> {
 }
 
 fn download(tag_name: &str, asset: &Asset, storage: &impl Storage) -> Result<()> {
+    let expected_digest = expected_sha256(asset)?;
+
     let cache_dir = storage.get_cache_dir()?;
     let version_dir_path = cache_dir.join(tag_name);
 
@@ -76,6 +71,43 @@ fn download(tag_name: &str, asset: &Asset, storage: &impl Storage) -> Result<()>
     let file_path = &cache_dir.join(tag_name).join(&asset.name);
     let mut file = cache::create_file(file_path)?;
     response.copy_to(&mut file)?;
+    file.flush()?;
+    verify_sha256(file_path, expected_digest)?;
+
+    Ok(())
+}
+
+fn expected_sha256(asset: &Asset) -> Result<&str> {
+    let digest = asset
+        .digest
+        .as_deref()
+        .ok_or_else(|| anyhow::anyhow!("[cmvm] Missing SHA-256 digest for {}.", asset.name))?;
+    digest
+        .strip_prefix("sha256:")
+        .filter(|digest| digest.len() == 64 && digest.bytes().all(|byte| byte.is_ascii_hexdigit()))
+        .ok_or_else(|| anyhow::anyhow!("[cmvm] Invalid SHA-256 digest for {}.", asset.name))
+}
+
+fn verify_sha256(file_path: &std::path::Path, expected_digest: &str) -> Result<()> {
+    let mut file = fs::File::open(file_path)?;
+    let mut hasher = Sha256::new();
+    let mut buffer = [0; 8192];
+
+    loop {
+        let bytes_read = file.read(&mut buffer)?;
+        if bytes_read == 0 {
+            break;
+        }
+        hasher.update(&buffer[..bytes_read]);
+    }
+
+    let actual_digest = format!("{:x}", hasher.finalize());
+    if !actual_digest.eq_ignore_ascii_case(expected_digest) {
+        bail!(
+            "[cmvm] SHA-256 digest mismatch for {}.",
+            file_path.display()
+        );
+    }
 
     Ok(())
 }
@@ -176,6 +208,7 @@ mod tests {
             name: name.to_string(),
             content_type: content_type.to_string(),
             browser_download_url: "https://fake-url".to_string(),
+            digest: None,
         }
     }
 
@@ -209,9 +242,9 @@ mod tests {
 
     #[test]
     fn test_validate_path_component_rejects_paths() {
-        assert!(validate_path_component("3.22.0", "version tag").is_ok());
-        assert!(validate_path_component("../outside", "version tag").is_err());
-        assert!(validate_path_component("/outside", "asset name").is_err());
+        assert!(validate_path_component("3.22.0").is_ok());
+        assert!(validate_path_component("../outside").is_err());
+        assert!(validate_path_component("/outside").is_err());
     }
 
     #[test]
@@ -351,5 +384,42 @@ mod tests {
         let version = make_version(assets);
         let filtered = filter_platform_assets(&version);
         assert_eq!(filtered.len(), 1);
+    }
+
+    #[test]
+    fn test_verify_sha256_accepts_matching_digest() {
+        let file_path = std::env::temp_dir().join("cmvm_test_valid_digest");
+        fs::write(&file_path, b"cmake archive").unwrap();
+
+        let result = verify_sha256(
+            &file_path,
+            "2b3cd85eec6db7a1a418559af44527e89b7c6af8d91af4a9a20c8f13d355b565",
+        );
+
+        fs::remove_file(file_path).unwrap();
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_verify_sha256_rejects_mismatched_digest() {
+        let file_path = std::env::temp_dir().join("cmvm_test_invalid_digest");
+        fs::write(&file_path, b"cmake archive").unwrap();
+
+        let result = verify_sha256(&file_path, &"0".repeat(64));
+
+        fs::remove_file(file_path).unwrap();
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_expected_sha256_requires_valid_asset_digest() {
+        let mut asset = make_asset("cmake.tar.gz", "application/gzip");
+        assert!(expected_sha256(&asset).is_err());
+
+        asset.digest = Some("sha256:invalid".to_string());
+        assert!(expected_sha256(&asset).is_err());
+
+        asset.digest = Some(format!("sha256:{}", "a".repeat(64)));
+        assert_eq!(expected_sha256(&asset).unwrap(), "a".repeat(64));
     }
 }
